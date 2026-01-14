@@ -80,39 +80,34 @@ function LayoutInner() {
   }, []);
 
   return (
-    <SettingsProvider>
-      <SessionProvider>
-        <EditorProvider>
-          <UsageTrackingProvider>
-            <ClaudeProvider>
-              <AntLayout style={{ height: '100vh' }}>
-                <Header
-                  style={{
-                    background: '#1f1f1f',
-                    color: '#fff',
-                    padding: '0 24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '1px solid #333',
-                  }}
-                >
-                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Context Kiln</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <SessionSelector
-                      projectPath={openFolderPath}
-                      projectId={currentProjectId}
-                    />
-                    <Button
-                      type="default"
-                      icon={<SettingOutlined />}
-                      onClick={() => setSettingsModalVisible(true)}
-                      size="small"
-                    >
-                      Settings
-                    </Button>
-                  </div>
-                </Header>
+    <AntLayout style={{ height: '100vh' }}>
+      <Header
+        style={{
+          background: '#1f1f1f',
+          color: '#fff',
+          padding: '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #333',
+        }}
+      >
+        <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Context Kiln</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <SessionSelector
+            projectPath={openFolderPath}
+            projectId={currentProjectId}
+          />
+          <Button
+            type="default"
+            icon={<SettingOutlined />}
+            onClick={() => setSettingsModalVisible(true)}
+            size="small"
+          >
+            Settings
+          </Button>
+        </div>
+      </Header>
 
       <Content style={{ flex: 1, overflow: 'hidden' }}>
         <Splitter
@@ -226,7 +221,6 @@ function LayoutInner() {
           </Splitter.Pane>
         </Splitter>
       </Content>
-              </AntLayout>
 
       {/* Settings Modal */}
       <SettingsModal
