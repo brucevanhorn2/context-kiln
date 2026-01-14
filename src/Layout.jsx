@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Layout as AntLayout, Splitter } from 'antd';
-import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, Splitter, Button } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from '@ant-design/icons';
 import FileTree from './FileTree';
 import ChatInterface from './ChatInterface';
 import ContextTools from './ContextTools';
+import SettingsModal from './components/SettingsModal';
+import SessionSelector from './components/SessionSelector';
 import './Layout.css';
+
+// Import context providers
+import { SettingsProvider } from './contexts/SettingsContext';
+import { SessionProvider } from './contexts/SessionContext';
+import { EditorProvider } from './contexts/EditorContext';
+import { UsageTrackingProvider } from './contexts/UsageTrackingContext';
+import { ClaudeProvider } from './contexts/ClaudeContext';
 
 const { Header, Content } = AntLayout;
 
@@ -14,6 +23,8 @@ function Layout() {
   const [treeData, setTreeData] = useState(null);
   const [openFolderPath, setOpenFolderPath] = useState(null);
   const [contextFiles, setContextFiles] = useState([]);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
 
   const handleAddContextFile = (filePath, isDirectory) => {
     // Calculate relative path from the opened folder
@@ -42,31 +53,62 @@ function Layout() {
   useEffect(() => {
     // Listen for folder open events from Electron main process
     if (window.electron) {
-      window.electron.onFolderOpened((data) => {
+      window.electron.onFolderOpened(async (data) => {
         setTreeData(data.data);
         setOpenFolderPath(data.path);
         // Clear context files when a new folder is opened
         setContextFiles([]);
+
+        // Get or create project in database
+        try {
+          const project = await window.electron.getOrCreateProject(data.path);
+          setCurrentProjectId(project.id);
+        } catch (err) {
+          console.error('Failed to get/create project:', err);
+        }
+      });
+
+      // Listen for settings menu command (Ctrl+,)
+      window.electron.onOpenSettings(() => {
+        setSettingsModalVisible(true);
       });
     }
   }, []);
 
   return (
-    <AntLayout style={{ height: '100vh' }}>
-      <Header
-        style={{
-          background: '#1f1f1f',
-          color: '#fff',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #333',
-        }}
-      >
-        <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Context Kiln</div>
-        <div style={{ fontSize: '12px', color: '#999' }}>VS Code-like Editor</div>
-      </Header>
+    <SettingsProvider>
+      <SessionProvider>
+        <EditorProvider>
+          <UsageTrackingProvider>
+            <ClaudeProvider>
+              <AntLayout style={{ height: '100vh' }}>
+                <Header
+                  style={{
+                    background: '#1f1f1f',
+                    color: '#fff',
+                    padding: '0 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid #333',
+                  }}
+                >
+                  <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Context Kiln</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <SessionSelector
+                      projectPath={openFolderPath}
+                      projectId={currentProjectId}
+                    />
+                    <Button
+                      type="default"
+                      icon={<SettingOutlined />}
+                      onClick={() => setSettingsModalVisible(true)}
+                      size="small"
+                    >
+                      Settings
+                    </Button>
+                  </div>
+                </Header>
 
       <Content style={{ flex: 1, overflow: 'hidden' }}>
         <Splitter
@@ -191,7 +233,18 @@ function Layout() {
           </Splitter.Pane>
         </Splitter>
       </Content>
-    </AntLayout>
+              </AntLayout>
+
+              {/* Settings Modal */}
+              <SettingsModal
+                visible={settingsModalVisible}
+                onClose={() => setSettingsModalVisible(false)}
+              />
+            </ClaudeProvider>
+          </UsageTrackingProvider>
+        </EditorProvider>
+      </SessionProvider>
+    </SettingsProvider>
   );
 }
 

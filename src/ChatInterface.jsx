@@ -1,20 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Space, Message } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { Button, Input, Space, Alert, Spin } from 'antd';
+import { SendOutlined, StopOutlined, RobotOutlined } from '@ant-design/icons';
+import { useClaude } from './contexts/ClaudeContext';
 
 function ChatInterface() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'user',
-      content: 'Hello! Can you help me with this project?',
-    },
-    {
-      id: 2,
-      type: 'assistant',
-      content: 'Of course! I\'m here to help you build your context engineering tools.',
-    },
-  ]);
+  const {
+    messages,
+    isStreaming,
+    error,
+    currentProvider,
+    currentModel,
+    sendMessage,
+    stopStreaming,
+    clearMessages,
+  } = useClaude();
+
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -26,27 +26,17 @@ function ChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (inputValue.trim() === '') return;
+  const handleSendMessage = async () => {
+    if (inputValue.trim() === '' || isStreaming) return;
 
-    const newMessage = {
-      id: messages.length + 1,
-      type: 'user',
-      content: inputValue,
-    };
-
-    setMessages([...messages, newMessage]);
+    const message = inputValue;
     setInputValue('');
 
-    // Simulate assistant response
-    setTimeout(() => {
-      const assistantMessage = {
-        id: messages.length + 2,
-        type: 'assistant',
-        content: 'This is a simulated response. Replace this with actual AI integration.',
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    }, 500);
+    try {
+      await sendMessage(message);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    }
   };
 
   return (
@@ -58,6 +48,42 @@ function ChatInterface() {
         padding: '16px',
       }}
     >
+      {/* Provider Info */}
+      <div
+        style={{
+          padding: '8px 12px',
+          marginBottom: '12px',
+          background: '#2a2a2a',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: '#888',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <RobotOutlined />
+        <span>
+          {currentProvider} / {currentModel}
+        </span>
+        {messages.length === 0 && (
+          <span style={{ marginLeft: 'auto', color: '#666' }}>
+            No API key configured - Go to Settings
+          </span>
+        )}
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          closable
+          style={{ marginBottom: '12px' }}
+        />
+      )}
+
       {/* Messages Area */}
       <div
         style={{
@@ -69,13 +95,28 @@ function ChatInterface() {
           gap: '12px',
         }}
       >
+        {messages.length === 0 && (
+          <div
+            style={{
+              textAlign: 'center',
+              color: '#666',
+              marginTop: '50px',
+              fontSize: '14px',
+            }}
+          >
+            <p>Welcome to Context Kiln!</p>
+            <p style={{ fontSize: '12px', marginTop: '8px' }}>
+              Send a message to start chatting with Claude.
+            </p>
+          </div>
+        )}
         {messages.map((message) => (
           <div
             key={message.id}
             style={{
               display: 'flex',
               justifyContent:
-                message.type === 'user' ? 'flex-end' : 'flex-start',
+                message.role === 'user' ? 'flex-end' : 'flex-start',
             }}
           >
             <div
@@ -84,15 +125,20 @@ function ChatInterface() {
                 padding: '10px 14px',
                 borderRadius: '8px',
                 backgroundColor:
-                  message.type === 'user'
-                    ? '#0e639c'
-                    : '#333333',
+                  message.role === 'user' ? '#0e639c' : '#333333',
                 color: '#d4d4d4',
                 fontSize: '13px',
                 lineHeight: '1.5',
+                position: 'relative',
               }}
             >
               {message.content}
+              {message.isStreaming && (
+                <Spin
+                  size="small"
+                  style={{ marginLeft: '8px', verticalAlign: 'middle' }}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -105,19 +151,34 @@ function ChatInterface() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onPressEnter={handleSendMessage}
-          placeholder="Type your message..."
+          placeholder={
+            isStreaming ? 'Waiting for response...' : 'Type your message...'
+          }
+          disabled={isStreaming}
           style={{
             backgroundColor: '#3c3c3c',
             borderColor: '#555555',
             color: '#d4d4d4',
           }}
         />
-        <Button
-          type="primary"
-          icon={<SendOutlined />}
-          onClick={handleSendMessage}
-          style={{ backgroundColor: '#0e639c', borderColor: '#0e639c' }}
-        />
+        {isStreaming ? (
+          <Button
+            danger
+            icon={<StopOutlined />}
+            onClick={stopStreaming}
+            title="Stop generating"
+          >
+            Stop
+          </Button>
+        ) : (
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim()}
+            style={{ backgroundColor: '#0e639c', borderColor: '#0e639c' }}
+          />
+        )}
       </Space.Compact>
     </div>
   );

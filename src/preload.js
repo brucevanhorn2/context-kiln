@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('electron', {
     });
   },
 
+  onOpenSettings: (callback) => {
+    ipcRenderer.on('open-settings', callback);
+  },
+
   // ============================================================================
   // AI PROVIDER
   // ============================================================================

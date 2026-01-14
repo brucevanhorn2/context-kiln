@@ -75,6 +75,16 @@ const createMenu = () => {
           type: 'separator',
         },
         {
+          label: 'Settings',
+          accelerator: 'Ctrl+,',
+          click: () => {
+            mainWindow.webContents.send('open-settings');
+          },
+        },
+        {
+          type: 'separator',
+        },
+        {
           label: 'Exit',
           accelerator: 'Ctrl+Q',
           click: () => {
