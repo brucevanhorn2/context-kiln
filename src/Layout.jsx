@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout as AntLayout, Splitter, Button } from 'antd';
 import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from '@ant-design/icons';
 import FileTree from './FileTree';
-import ChatInterface from './ChatInterface';
+import CenterPanel from './components/CenterPanel';
 import ContextTools from './ContextTools';
 import SettingsModal from './components/SettingsModal';
 import SessionSelector from './components/SessionSelector';
@@ -11,13 +11,14 @@ import './Layout.css';
 // Import context providers
 import { SettingsProvider } from './contexts/SettingsContext';
 import { SessionProvider } from './contexts/SessionContext';
-import { EditorProvider } from './contexts/EditorContext';
+import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { UsageTrackingProvider } from './contexts/UsageTrackingContext';
 import { ClaudeProvider } from './contexts/ClaudeContext';
 
 const { Header, Content } = AntLayout;
 
-function Layout() {
+// Inner component that can use EditorContext
+function LayoutInner() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [treeData, setTreeData] = useState(null);
@@ -25,6 +26,9 @@ function Layout() {
   const [contextFiles, setContextFiles] = useState([]);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
+
+  // Access EditorContext
+  const { openFile } = useEditor();
 
   const handleAddContextFile = (filePath, isDirectory) => {
     // Calculate relative path from the opened folder
@@ -156,6 +160,7 @@ function Layout() {
                 treeData={treeData}
                 openFolderPath={openFolderPath}
                 onAddContextFile={handleAddContextFile}
+                onOpenFile={openFile}
               />
             </div>
           </Splitter.Pane>
@@ -168,21 +173,8 @@ function Layout() {
               flexDirection: 'column',
             }}
           >
-            <div
-              style={{
-                padding: '8px',
-                borderRight: '1px solid #333',
-                borderBottom: '1px solid #333',
-                background: '#252526',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}
-            >
-              CHAT
-            </div>
-            <div style={{ flex: 1, overflow: 'auto', background: '#1e1e1e' }}>
-              <ChatInterface />
+            <div style={{ flex: 1, overflow: 'hidden', background: '#1e1e1e' }}>
+              <CenterPanel />
             </div>
           </Splitter.Pane>
 
@@ -228,6 +220,7 @@ function Layout() {
                 onRemoveContextFile={handleRemoveContextFile}
                 onAddContextFile={handleAddContextFile}
                 openFolderPath={openFolderPath}
+                onOpenFile={openFile}
               />
             </div>
           </Splitter.Pane>
@@ -235,11 +228,24 @@ function Layout() {
       </Content>
               </AntLayout>
 
-              {/* Settings Modal */}
-              <SettingsModal
-                visible={settingsModalVisible}
-                onClose={() => setSettingsModalVisible(false)}
-              />
+      {/* Settings Modal */}
+      <SettingsModal
+        visible={settingsModalVisible}
+        onClose={() => setSettingsModalVisible(false)}
+      />
+    </AntLayout>
+  );
+}
+
+// Outer Layout component that wraps with providers
+function Layout() {
+  return (
+    <SettingsProvider>
+      <SessionProvider>
+        <EditorProvider>
+          <UsageTrackingProvider>
+            <ClaudeProvider>
+              <LayoutInner />
             </ClaudeProvider>
           </UsageTrackingProvider>
         </EditorProvider>
