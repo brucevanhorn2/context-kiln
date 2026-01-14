@@ -1,5 +1,4 @@
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 
 /**
  * SessionService - Manage session files and directories
@@ -36,6 +35,7 @@ class SessionService {
    */
   async createSession(projectPath, sessionName, projectId) {
     // Generate UUID
+    const { v4: uuidv4 } = await import('uuid');
     const uuid = uuidv4();
 
     // Sanitize session name for folder name
