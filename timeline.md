@@ -536,3 +536,312 @@ npm run dev  # Start dev server + Electron
 ---
 
 _This timeline will be updated as development continues. All major decisions, mistakes, and learnings should be documented here._
+
+---
+
+## 2026-01-14 - Session 2: Planning Integration & Documentation
+
+### Session Start: ~4:20 PM EST
+
+**Context**: User cloned Context Kiln repo (built on different machine with Claude Code Pro) to work laptop. Need to integrate planning session requirements from x-copilot-proxy project.
+
+---
+
+### 4:20 PM - Context Assessment
+**Milestone**: Repository review
+
+**User Goal**: "I've cloned it at context-kiln. The repo doesn't have the benefit of the planning documents we made on this laptop. I'm very interested in getting you to help me integrate our ideation session with my implementation so far."
+
+**Current State Review**:
+- ✅ Ant Design UI with dark mode
+- ✅ File tree with drag-and-drop
+- ✅ Context window for file management  
+- ✅ Session management architecture
+- ✅ Token counting infrastructure (tiktoken)
+- ✅ Database schema for usage tracking
+- ✅ Adapter pattern for multi-provider
+- ✅ Monaco editor planned
+
+**Original Planning Docs Location**: `/Users/bruce.vanhorn/src/x-copilot-proxy/PROJECT_REQUIREMENTS.md`
+
+**Gap Identified**: Novel token budgeting features from planning session not yet documented in Context Kiln
+
+---
+
+### 4:30 PM - MVP Scope Clarification
+**Milestone**: User defines implementation priorities
+
+**Major Decision**: "For the MVP, I want to focus on Claude API first, then ChatGPT's API. After API stuff works, I'll worry about piping through locked down CLI."
+
+**Rationale**: Lower barrier to entry for users (Claude/OpenAI direct access) vs enterprise proxy setup
+
+**Implementation Order**:
+1. Claude API (Phase 2) - Direct Anthropic integration
+2. OpenAI API (v1.1) - Direct OpenAI integration  
+3. Copilot Proxy (v2.5) - Enterprise use case
+
+**This Changes**: Proxy integration from MVP to v2.5 (Enterprise Features)
+
+---
+
+### 4:35 PM - Documentation Request
+**Milestone**: Task assignment
+
+**User Request**: "I would like you to get the documentation into the repo and create a roadmap for me."
+
+**Deliverables Needed**:
+1. Token budgeting requirements doc
+2. Product roadmap
+3. Feature integration mapping
+
+---
+
+### 4:40 PM - Token Budgeting Doc Created
+**Milestone**: Novel features documented
+
+**File Created**: `docs/features/token-budgeting.md` (10,689 chars)
+
+**Sections**:
+1. Overview (why this matters)
+2. Feature Set (6 major features)
+   - Pre-flight cost estimation
+   - Per-session budget management
+   - Context optimization engine
+   - Historical analytics dashboard
+   - Budget-aware model selection
+   - Visual budget indicators
+3. Implementation phases (6 sub-phases)
+4. Success criteria
+5. Future enhancements
+6. Technical considerations
+
+**Key Features Documented**:
+- ⭐ Pre-flight modal (show cost before sending)
+- ⭐ Context optimization suggestions (remove bloat)
+- ⭐ Budget forecasting (burn rate, projections)
+- ⭐ Auto-model-switching (conserve budget)
+- ⭐ Visual indicators (🟢🟡🔴 session badges)
+
+**Novel**: No other tool has these features
+
+**Target**: Phase 6 (v2.0) - 2026-04-01
+
+---
+
+### 4:50 PM - Product Roadmap Created
+**Milestone**: Strategic planning document
+
+**File Created**: `docs/ROADMAP.md` (12,236 chars)
+
+**Timeline Overview**:
+- ✅ v0.1 (2026-01-13): Prototype complete
+- 🟡 v0.5 (2026-02-01): MVP (Phases 1-5) in progress
+- 🎯 v1.0 (2026-02-01): MVP launch
+- 🚀 v1.1 (2026-02-15): OpenAI support
+- 🔧 v1.2 (2026-03-01): Enhanced context management
+- 💰 v2.0 (2026-04-01): Token budgeting (novel features)
+- 🏢 v2.5 (2026-05-01): Enterprise features (Copilot proxy)
+- 🤖 v3.0 (2026-06-01): Local AI models (Ollama)
+- 🎨 v3.5 (2026-07-01): Advanced UI
+- 🔗 v4.0 (2026-08-01): Integrations
+
+**Key Milestones Defined**:
+- MVP: 3 weeks (5 phases)
+- Token budgeting: 6 weeks (Phase 6a-f)
+- Enterprise support: 4 weeks
+- Local models: 4 weeks
+
+**Success Metrics**:
+- v1.0: 100 GitHub stars, 10 active users
+- v2.0: 1,000 stars, 100 users, featured on HN
+- v3.0: First paying customer, 500 users
+
+---
+
+### 5:00 PM - Feature Integration Mapping
+**Milestone**: Bridge planning session to implementation
+
+**File Created**: `docs/FEATURE_INTEGRATION.md` (12,239 chars)
+
+**Purpose**: Map x-copilot-proxy requirements → Context Kiln roadmap
+
+**Key Mappings**:
+- ✅ Multi-session support → Sessions with UUID
+- ✅ File system integration → File tree + drag-drop
+- ✅ Token counting → TokenCounterService
+- 🟡 Token budgeting → Phase 6 (v2.0)
+- 🟡 Copilot proxy → v2.5 Enterprise
+- ⏳ Context optimization → Phase 6c
+- ⏳ Analytics dashboard → Phase 6d
+
+**Architecture Differences Documented**:
+- Original vision: Parallel multi-agent tabs
+- Context Kiln: Sequential session selector
+- Rationale: Simpler mental model, still effective
+
+**Copilot Proxy Integration Plan**:
+```javascript
+// v2.5: Create CopilotProxyAdapter
+class CopilotProxyAdapter extends BaseAdapter {
+  constructor() {
+    super('copilot-proxy', 'http://localhost:3030/v1');
+  }
+  // Point OpenAI SDK at localhost:3030
+}
+```
+
+**Key Insight**: Adapter pattern makes proxy integration trivial (just another adapter)
+
+---
+
+### 5:10 PM - Documentation Complete
+**Milestone**: All planning docs integrated
+
+**Deliverables Created**:
+1. ✅ `docs/features/token-budgeting.md` - Novel features specification
+2. ✅ `docs/ROADMAP.md` - Product roadmap (v0.1 → v4.0)
+3. ✅ `docs/FEATURE_INTEGRATION.md` - Planning session mapping
+
+**Total Documentation**: ~35,000 characters (3 files)
+
+**Impact**:
+- Complete vision documented
+- Roadmap provides clear path forward
+- Planning session requirements preserved
+- Context Kiln direction validated
+
+---
+
+### 5:15 PM - Timeline Updated
+**Current Activity**: Documenting Session 2 in timeline.md
+
+---
+
+## Key Learnings & Mistakes
+
+### Learning #4: Documentation Portability
+**What Happened**: Context Kiln built on different machine, planning docs on work laptop
+**Realization**: Need to integrate planning across machines/repos
+**Lesson**: Documentation must be in the repo, not external
+**Takeaway**: All planning docs now in `docs/` for portability
+
+### Learning #5: MVP Scope Evolution
+**What Happened**: Original plan included enterprise proxy in MVP
+**User Input**: "Focus on Claude/OpenAI APIs first, proxy later"
+**Lesson**: Lower barriers to entry (common use cases) before edge cases (enterprise)
+**Impact**: Proxy moved from MVP → v2.5 (Enterprise Features)
+**Takeaway**: Prioritize accessibility over completeness
+
+### Learning #6: Novel Features as Differentiator
+**What Happened**: Identified token budgeting gap in all existing tools
+**Realization**: This is a competitive advantage, not just nice-to-have
+**Lesson**: Novel features drive adoption (first mover advantage)
+**Impact**: Token budgeting elevated to v2.0 major release
+**Takeaway**: Build unique features, not just feature parity
+
+---
+
+## Decisions Made
+
+### Decision #1: Proxy Integration Timeline
+**Question**: When to integrate Copilot proxy?
+**Answer**: v2.5 (Enterprise Features) - 2026-05-01
+**Rationale**: 
+- Lower barrier to entry with direct APIs first
+- Enterprise features as separate release
+- Adapter pattern makes integration straightforward later
+**Consequences**: 
+- MVP accessible to more users
+- Delayed personal use case (proxy at work)
+- Can dogfood with Claude Code Pro in meantime
+
+### Decision #2: Token Budgeting as Major Release
+**Question**: Include budgeting in MVP or defer?
+**Answer**: Separate v2.0 release - 2026-04-01
+**Rationale**:
+- MVP needs to be functional first (chat, files, editor)
+- Budgeting is novel, deserves dedicated focus
+- 6-week implementation timeline too long for MVP
+**Consequences**:
+- MVP simpler, ships faster
+- Budgeting gets proper attention and marketing
+- Can gather feedback on MVP before building budgeting
+
+### Decision #3: Documentation Strategy
+**Question**: How to document future features?
+**Answer**: Create dedicated `docs/features/` directory
+**Rationale**:
+- Separates planning from implementation status
+- Features can be specified before implementation
+- Easy to reference during development
+**Consequences**:
+- Clear feature specifications
+- Easier to discuss with community
+- Can prioritize based on complete specs
+
+---
+
+## Next Session TODO
+
+### Immediate (Continue MVP)
+1. Complete Phase 1 (React contexts + IPC) - 4 tasks remaining
+2. Test service layer integration
+3. Begin Phase 2 (Claude API integration)
+
+### Documentation
+1. Update timeline.md with Session 2 (this session)
+2. Review roadmap with user for validation
+3. Create issues in GitHub for Phase 6 features
+
+### Planning
+1. Decide on v1.0 launch strategy (beta users?)
+2. Plan dogfooding approach (use Context Kiln to build Context Kiln)
+3. Create Phase 1 completion checklist
+
+---
+
+## Session End: ~5:15 PM EST
+
+**Duration**: ~55 minutes
+**Output**: 3 major planning documents (~35,000 chars)
+**Status**: Planning complete, ready to continue MVP implementation
+**Next**: Complete Phase 1, begin Claude API integration (Phase 2)
+
+---
+
+## Notes for Future Sessions
+
+**Critical Documents**:
+1. `docs/ROADMAP.md` - Product timeline (v0.1 → v4.0)
+2. `docs/features/token-budgeting.md` - Novel features spec
+3. `docs/FEATURE_INTEGRATION.md` - Planning session mapping
+4. `docs/MVP-Plan.md` - Original MVP specification
+5. `docs/Implementation-Status.md` - Task checklist
+6. `timeline.md` - This file (session history)
+
+**Current State**:
+- Phase 1: 71% complete (4 tasks remaining)
+- Planning: 100% complete (all requirements documented)
+- Roadmap: Defined through v4.0 (2026-08-01)
+
+**Strategic Direction**:
+- MVP focus: Claude + OpenAI APIs (broad appeal)
+- v2.0 focus: Token budgeting (novel differentiation)
+- v2.5 focus: Enterprise features (work use case)
+- v3.0+ focus: Local models + advanced features
+
+**What's Different from Original Plan**:
+- Proxy integration moved from MVP → v2.5
+- Token budgeting elevated to dedicated v2.0 release
+- OpenAI support added as v1.1 (quick win)
+
+**Key Success Factors**:
+1. Ship MVP fast (3 weeks)
+2. Novel features drive adoption (token budgeting)
+3. Dogfood internally (use to build itself)
+4. Community-driven priorities
+
+---
+
+_Timeline updated. Session 2 complete._
+
