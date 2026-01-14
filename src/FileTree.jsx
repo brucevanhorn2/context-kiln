@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Tree, Empty } from 'antd';
 import { getFileIcon, getFolderIcon } from './fileIcons';
 
-function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = null }) {
+function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = null, onOpenFile = null }) {
   const [data, setData] = useState(treeData);
   const [expandedKeys, setExpandedKeys] = useState([]);
 
-  // Custom title renderer that supports drag
+  // Custom title renderer that supports drag and double-click
   const createDraggableTitle = (node) => {
     const isDirectory = node.children && node.children.length > 0;
 
@@ -21,8 +21,15 @@ function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = n
             filename: node.title,
           }));
         }}
+        onDoubleClick={(e) => {
+          // Double-click to open file in editor
+          if (!isDirectory && onOpenFile) {
+            e.stopPropagation();
+            onOpenFile(node.key);
+          }
+        }}
         style={{
-          cursor: 'grab',
+          cursor: isDirectory ? 'pointer' : 'grab',
           userSelect: 'none',
           padding: '2px 4px',
           borderRadius: '2px',

@@ -8,6 +8,7 @@ function ContextTools({
   onRemoveContextFile = null,
   onAddContextFile = null,
   openFolderPath = null,
+  onOpenFile = null,
 }) {
   const [activeTab, setActiveTab] = useState('1');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -162,11 +163,18 @@ function ContextTools({
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      cursor: !file.isDirectory ? 'pointer' : 'default',
                     }}
-                    title={file.relativePath}
+                    title={file.relativePath + ' (double-click to open)'}
                     onClose={() => {
                       if (onRemoveContextFile) {
                         onRemoveContextFile(file.id);
+                      }
+                    }}
+                    onDoubleClick={() => {
+                      // Double-click to open file in editor
+                      if (!file.isDirectory && onOpenFile) {
+                        onOpenFile(file.path);
                       }
                     }}
                   >
