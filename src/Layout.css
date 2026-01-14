@@ -1,0 +1,142 @@
+/* Override Ant Design default styles for dark theme */
+.ant-layout {
+  background: #1e1e1e;
+}
+
+.ant-layout-header {
+  background: #1f1f1f !important;
+}
+
+.ant-layout-content {
+  background: #1e1e1e;
+}
+
+/* Tree component styling */
+.ant-tree {
+  background: transparent;
+  color: #d4d4d4;
+}
+
+.ant-tree-node-content-wrapper {
+  color: #d4d4d4;
+}
+
+.ant-tree-node-content-wrapper:hover {
+  background: #252526;
+}
+
+.ant-tree .ant-tree-node-selected .ant-tree-node-content-wrapper {
+  background: #0e639c !important;
+}
+
+.ant-tree-icon {
+  margin-right: 4px;
+}
+
+/* Splitter styling */
+.ant-splitter {
+  background: #1e1e1e;
+}
+
+.ant-splitter-pane {
+  overflow: hidden !important;
+}
+
+/* Input styling */
+.ant-input {
+  background: #3c3c3c !important;
+  border-color: #555555 !important;
+  color: #d4d4d4 !important;
+}
+
+.ant-input::placeholder {
+  color: #858585;
+}
+
+.ant-input:hover {
+  border-color: #676767 !important;
+}
+
+.ant-input:focus {
+  border-color: #0e639c !important;
+  box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.2) !important;
+}
+
+/* Button styling */
+.ant-btn-primary {
+  background: #0e639c;
+  border-color: #0e639c;
+}
+
+.ant-btn-primary:hover {
+  background: #1177bb;
+  border-color: #1177bb;
+}
+
+/* Tabs styling */
+.ant-tabs {
+  color: #d4d4d4;
+}
+
+.ant-tabs-tab {
+  color: #999999 !important;
+  border-color: #333 !important;
+}
+
+.ant-tabs-tab-active {
+  color: #d4d4d4 !important;
+  border-color: #0e639c !important;
+}
+
+.ant-tabs-ink-bar {
+  background: #0e639c !important;
+}
+
+/* Tag styling */
+.ant-tag {
+  background: #1a1a1a;
+  border-color: #333;
+  color: #d4d4d4;
+}
+
+/* Message input area */
+.ant-space-compact {
+  display: flex;
+  gap: 8px;
+}
+
+.ant-space-compact-item {
+  flex: 1;
+}
+
+.ant-space-compact > * {
+  margin-right: 0;
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #464647;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
+/* Message bubbles */
+.message-user {
+  align-self: flex-end;
+}
+
+.message-assistant {
+  align-self: flex-start;
+}
