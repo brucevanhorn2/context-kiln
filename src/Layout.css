@@ -92,6 +92,19 @@
   background: #0e639c !important;
 }
 
+/* Make tabs content area fill remaining height */
+.ant-tabs-content-holder {
+  overflow: hidden;
+}
+
+.ant-tabs-content {
+  height: 100%;
+}
+
+.ant-tabs-tabpane {
+  height: 100%;
+}
+
 /* Tag styling */
 .ant-tag {
   background: #1a1a1a;

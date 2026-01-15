@@ -1,6 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Spin, Alert } from 'antd';
+import { Spin, Alert, Button, Space, Tooltip } from 'antd';
+import {
+  SaveOutlined,
+  UndoOutlined,
+  RedoOutlined,
+  CopyOutlined,
+  ScissorOutlined,
+  SnippetsOutlined,
+  SearchOutlined,
+  AlignLeftOutlined,
+} from '@ant-design/icons';
 import { useEditor } from '../contexts/EditorContext';
 import { useSettings } from '../contexts/SettingsContext';
 
@@ -24,6 +34,8 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
 
   const { settings } = useSettings();
   const editorRef = useRef(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   // Find the file
   const file = openFiles.find((f) => f.path === filePath);
@@ -38,6 +50,16 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
       await handleSave();
     });
+
+    // Track undo/redo availability
+    const model = editor.getModel();
+    if (model) {
+      model.onDidChangeContent(() => {
+        const viewState = editor.saveViewState();
+        setCanUndo(model.canUndo());
+        setCanRedo(model.canRedo());
+      });
+    }
 
     // Focus editor
     editor.focus();
@@ -63,6 +85,33 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
       // Show brief success indicator (could add toast notification)
       console.log(`Saved: ${filePath}`);
     }
+  };
+
+  /**
+   * Toolbar actions - trigger Monaco commands
+   */
+  const toolbarActions = {
+    undo: () => {
+      editorRef.current?.trigger('toolbar', 'undo', null);
+    },
+    redo: () => {
+      editorRef.current?.trigger('toolbar', 'redo', null);
+    },
+    cut: () => {
+      editorRef.current?.trigger('toolbar', 'editor.action.clipboardCutAction', null);
+    },
+    copy: () => {
+      editorRef.current?.trigger('toolbar', 'editor.action.clipboardCopyAction', null);
+    },
+    paste: () => {
+      editorRef.current?.trigger('toolbar', 'editor.action.clipboardPasteAction', null);
+    },
+    find: () => {
+      editorRef.current?.trigger('toolbar', 'actions.find', null);
+    },
+    format: () => {
+      editorRef.current?.trigger('toolbar', 'editor.action.formatDocument', null);
+    },
   };
 
   /**
@@ -92,7 +141,7 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
   }
 
   return (
-    <div style={{ height: '100%', position: 'relative' }}>
+    <div style={{ height: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
       {/* Dirty indicator */}
       {file.isDirty && (
         <div
@@ -113,8 +162,83 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
         </div>
       )}
 
-      <Editor
-        height="100%"
+      {/* Toolbar */}
+      <div
+        style={{
+          background: '#252526',
+          borderBottom: '1px solid #333',
+          padding: '4px 8px',
+          flexShrink: 0,
+        }}
+      >
+        <Space size="small">
+          <Tooltip title="Save (Ctrl+S)">
+            <Button
+              size="small"
+              icon={<SaveOutlined />}
+              onClick={handleSave}
+              disabled={!file.isDirty}
+              type={file.isDirty ? 'primary' : 'default'}
+            />
+          </Tooltip>
+          <Tooltip title="Undo (Ctrl+Z)">
+            <Button
+              size="small"
+              icon={<UndoOutlined />}
+              onClick={toolbarActions.undo}
+              disabled={!canUndo}
+            />
+          </Tooltip>
+          <Tooltip title="Redo (Ctrl+Y)">
+            <Button
+              size="small"
+              icon={<RedoOutlined />}
+              onClick={toolbarActions.redo}
+              disabled={!canRedo}
+            />
+          </Tooltip>
+          <Tooltip title="Cut (Ctrl+X)">
+            <Button
+              size="small"
+              icon={<ScissorOutlined />}
+              onClick={toolbarActions.cut}
+            />
+          </Tooltip>
+          <Tooltip title="Copy (Ctrl+C)">
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={toolbarActions.copy}
+            />
+          </Tooltip>
+          <Tooltip title="Paste (Ctrl+V)">
+            <Button
+              size="small"
+              icon={<SnippetsOutlined />}
+              onClick={toolbarActions.paste}
+            />
+          </Tooltip>
+          <Tooltip title="Find (Ctrl+F)">
+            <Button
+              size="small"
+              icon={<SearchOutlined />}
+              onClick={toolbarActions.find}
+            />
+          </Tooltip>
+          <Tooltip title="Format Document">
+            <Button
+              size="small"
+              icon={<AlignLeftOutlined />}
+              onClick={toolbarActions.format}
+            />
+          </Tooltip>
+        </Space>
+      </div>
+
+      {/* Monaco Editor - takes remaining space */}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <Editor
+          height="100%"
         language={file.language}
         value={file.content}
         onChange={handleChange}
@@ -143,14 +267,11 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
           formatOnType: true,
         }}
       />
+      </div>
 
-      {/* File info bar */}
+      {/* File info bar - fixed height at bottom */}
       <div
         style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
           background: '#252526',
           borderTop: '1px solid #333',
           padding: '4px 12px',
@@ -159,6 +280,7 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexShrink: 0,
         }}
       >
         <div>{file.relativePath || filePath}</div>

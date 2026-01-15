@@ -339,6 +339,27 @@ class DatabaseService {
   }
 
   /**
+   * Get global usage across all projects and sessions
+   *
+   * @param {string} timeRange - 'all', 'day', 'week', 'month'
+   * @returns {object} Usage totals
+   */
+  getGlobalUsage(timeRange = 'all') {
+    const whereClause = this._buildTimeRangeClause(timeRange);
+    const query = `
+      SELECT
+        COUNT(*) as call_count,
+        SUM(input_tokens) as total_input_tokens,
+        SUM(output_tokens) as total_output_tokens,
+        SUM(cost_usd) as total_cost_usd
+      FROM token_usage
+      ${whereClause ? 'WHERE ' + whereClause.replace('AND ', '') : ''}
+    `;
+
+    return this.db.prepare(query).get();
+  }
+
+  /**
    * Build time range WHERE clause
    * @private
    */

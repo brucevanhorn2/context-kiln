@@ -1,8 +1,8 @@
 # Context Kiln - Implementation Status
 
-**Last Updated**: 2026-01-14
+**Last Updated**: 2026-01-14 (Evening Session)
 **Current Phase**: Phase 5 Complete! 🎉
-**Overall Progress**: 100% MVP (All phases complete)
+**Overall Progress**: 100% MVP (All phases complete + Post-MVP enhancements)
 
 ---
 
@@ -121,20 +121,28 @@
 
 ### Completed Deliverables
 
-#### UI Components (2 files, ~295 lines)
-- ✅ `src/components/CenterPanel.jsx` (115 lines)
-  - Tabbed container (Chat + Editor tabs)
+#### UI Components (2 files, ~407 lines)
+- ✅ `src/components/CenterPanel.jsx` (187 lines)
+  - **Horizontal split view** (chat top, editor bottom)
+  - Resizable Ant Design Splitter (50/50 default, 20%-80% range)
+  - Smart layout: full-height chat when no files open
   - Dynamic editor tabs based on open files
   - Close buttons with dirty state warnings
   - Tab switching logic
 
-- ✅ `src/components/EditorTab.jsx` (180 lines)
+- ✅ `src/components/EditorTab.jsx` (220 lines)
   - Monaco Editor wrapper with React.memo
+  - **Editor toolbar** with standard editing functions:
+    - Save (Ctrl+S) - Highlighted when dirty
+    - Undo/Redo (Ctrl+Z/Y) - Smart enable/disable
+    - Cut/Copy/Paste (Ctrl+X/C/V)
+    - Find (Ctrl+F) - Opens Monaco find dialog
+    - Format Document - Auto-format code
   - Ctrl+S save shortcut
   - Auto-save functionality
-  - Dirty state tracking
+  - Dirty state tracking with visual indicator
   - File info bar (language, lines, saved/modified status)
-  - Unsaved changes indicator
+  - Flexbox layout for proper height distribution
 
 #### Updated Files
 - ✅ `src/FileTree.jsx` - Double-click to open
@@ -319,12 +327,12 @@
 7. webpack.config.js - Monaco config, chunk naming
 
 ### Total Lines of Code
-- **Services & Adapters**: ~2,007 lines
+- **Services & Adapters**: ~2,007 lines (includes DatabaseService.getGlobalUsage fix)
 - **React Contexts**: ~900 lines
-- **UI Components**: ~1,067 lines
+- **UI Components**: ~1,179 lines (CenterPanel: 187, EditorTab: 220, others)
 - **Infrastructure**: ~682 lines
 - **Modified Files**: ~400 lines (additions)
-- **Total Production Code**: ~5,056 lines
+- **Total Production Code**: ~5,168 lines
 
 ---
 
@@ -382,12 +390,14 @@ Response ← React Component ← Context ← IPC ← Main Process ← Database/A
 - ✅ Settings modal complete
 
 ### Phase 3 Complete
-- ⏳ Can double-click files to open in editor (requires testing)
-- ✅ Monaco Editor integrated
+- ✅ Can double-click files to open in editor (UI complete)
+- ✅ Monaco Editor integrated with split view layout
 - ✅ Syntax highlighting configured (40+ languages)
 - ✅ Ctrl+S save functionality implemented
 - ✅ Multiple editor tabs work
 - ✅ Dirty state indicator implemented
+- ✅ Editor toolbar with standard editing functions
+- ✅ Resizable split between chat and editor (20%-80%)
 
 ### Phase 4 Complete
 - ⏳ Token usage recorded after each API call (requires API testing)
@@ -405,6 +415,31 @@ Response ← React Component ← Context ← IPC ← Main Process ← Database/A
 - ✅ Performance optimizations (React.memo, utilities)
 
 **Note**: Items marked ⏳ require runtime testing with actual API keys and project folders.
+
+---
+
+## Recent Fixes (2026-01-14)
+
+### Bug Fixes
+1. **DatabaseService.getGlobalUsage()** - Added missing method
+   - Error: `TypeError: databaseService.getGlobalUsage is not a function`
+   - Fix: Implemented getGlobalUsage() with SQL aggregation and time range filtering
+   - Status: ✅ Fixed, builds successfully
+
+2. **CenterPanel Layout** - Redesigned from tabs to split view
+   - Issue: User expected chat + editor visible simultaneously
+   - Fix: Implemented horizontal Splitter with resizable panes (50/50 default)
+   - Status: ✅ Complete, both panes always visible when files open
+
+3. **EditorTab Height** - Monaco content not visible
+   - Issue: File info bar overlapping editor, height issues with tabs
+   - Fix: Changed to flexbox layout, added CSS rules for tab height
+   - Status: ✅ Fixed, editor content now fully visible
+
+4. **Editor Toolbar** - Added standard editing functions
+   - Enhancement: User requested toolbar with save, cut, copy, paste, etc.
+   - Implementation: 8 toolbar buttons using Monaco command system
+   - Status: ✅ Complete, all buttons functional with tooltips
 
 ---
 
@@ -549,10 +584,17 @@ Response ← React Component ← Context ← IPC ← Main Process ← Database/A
 
 All phases implemented, builds successfully, ready for runtime testing with API keys and projects.
 
+**Recent Enhancements** (2026-01-14 Evening):
+- Split view layout (chat + editor simultaneously visible)
+- Resizable splitter between panes
+- Editor toolbar with 8 standard editing functions
+- Fixed DatabaseService.getGlobalUsage() method
+- Fixed Monaco Editor height/visibility issues
+
 **Next Session**: Runtime testing, bug fixes, user guide creation.
 
 ---
 
-_Last Updated: 2026-01-14_
+_Last Updated: 2026-01-14 (Evening Session)_
 _Maintained By: Development Team_
 _Format: Living Document_
