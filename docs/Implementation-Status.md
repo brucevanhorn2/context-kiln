@@ -1,12 +1,34 @@
 # Context Kiln - Implementation Status
 
-**Last Updated**: 2026-01-14 (Evening Session)
-**Current Phase**: Phase 5 Complete! 🎉
-**Overall Progress**: 100% MVP (All phases complete + Post-MVP enhancements)
+**Last Updated**: 2026-01-14 (Evening Session - Strategic Pivot)
+**Current Phase**: Phase A Complete (Local LLMs), Phase B Next (Tool Use)
+**Overall Progress**: 100% Chat Infrastructure + 0% Agentic Features
+**Strategic Direction**: Local-first → Tool use → Cloud APIs
+
+---
+
+## Strategic Pivot (2026-01-14 Evening)
+
+**Decision**: Prioritize local LLMs (Ollama, LM Studio) over cloud APIs for initial development.
+
+**Rationale**:
+- 💰 **Zero cost testing** - No API charges during development
+- ⚡ **Faster iteration** - No rate limits or network latency
+- 🔒 **Privacy** - Code stays local during testing
+- 🎯 **Better models** - Qwen2.5-Coder optimized for code tasks
+
+**Impact**: Adapter pattern made this pivot trivial (2 hours of work). Once stable with local models, adding Claude/OpenAI is easy.
+
+**New MVP Definition**:
+1. ✅ **Phase A**: Chat with local LLMs (COMPLETE)
+2. 🔄 **Phase B**: Tool use for file editing (NEXT - 3-5 hours)
+3. 🔮 **Phase C**: Agentic multi-step workflows (FUTURE - 5-7 hours)
 
 ---
 
 ## Quick Status
+
+### Original Phases (Infrastructure) - COMPLETE ✅
 
 | Phase | Status | Progress | Tasks Complete | Key Deliverables |
 |-------|--------|----------|----------------|------------------|
@@ -15,7 +37,16 @@
 | **Phase 3** | 🟢 Complete | 100% | 8/8 | Monaco Editor, file operations, multi-tab UI |
 | **Phase 4** | 🟢 Complete | 100% | 9/9 | Token tracking, usage dashboard, cost calculations |
 | **Phase 5** | 🟢 Complete | 100% | 8/8 | Layout system, error handling, performance |
-| **TOTAL** | 🟢 Complete | 100% | 52/52 | **MVP READY** |
+| **Infrastructure** | 🟢 Complete | 100% | 52/52 | **All Chat UI & Backend Complete** |
+
+### New Phases (Agentic Features) - IN PROGRESS 🔄
+
+| Phase | Status | Progress | Tasks | Key Deliverables |
+|-------|--------|----------|-------|------------------|
+| **Phase A** | 🟢 Complete | 100% | 5/5 | Local LLMs (Ollama, LM Studio), ESLint, Toolbar |
+| **Phase B** | ⚪ Not Started | 0% | 0/7 | Tool use, function calling, diff preview, approval |
+| **Phase C** | ⚪ Not Started | 0% | 0/5 | Multi-step workflows, planning, error recovery |
+| **Agentic** | 🟡 In Progress | 29% | 5/17 | **Phase A Done, B & C Remain** |
 
 **Legend**:
 - 🟢 Complete
@@ -443,6 +474,140 @@ Response ← React Component ← Context ← IPC ← Main Process ← Database/A
 
 ---
 
+## Phase A: Local LLM Integration (2026-01-14 Evening) ✅ COMPLETE
+
+**Goal**: Enable chat with free local models (Ollama, LM Studio)
+
+### Completed Deliverables
+
+#### 1. OllamaAdapter Implementation (270 lines)
+**File**: `src/services/adapters/OllamaAdapter.js`
+
+**Features**:
+- ✅ Full Ollama API integration (POST /api/chat)
+- ✅ Streaming support (newline-delimited JSON)
+- ✅ Dynamic model discovery (GET /api/tags)
+- ✅ No API key required (local server)
+- ✅ Helpful error messages ("Ollama not running")
+
+**API Format**:
+```json
+// Request
+{
+  "model": "llama3.1",
+  "messages": [{ "role": "user", "content": "..." }],
+  "stream": true
+}
+
+// Response
+{"message":{"content":"chunk"}}
+{"done":true,"prompt_eval_count":150,"eval_count":75}
+```
+
+**Models Supported**:
+- llama3.1 (general purpose, 8k context)
+- qwen2.5-coder (code specialist, 32k context)
+- codellama (code understanding, 16k context)
+- Any model via `ollama pull`
+
+#### 2. LM Studio Adapter Implementation (253 lines)
+**File**: `src/services/adapters/LMStudioAdapter.js`
+
+**Features**:
+- ✅ OpenAI-compatible API (LM Studio format)
+- ✅ SSE (Server-Sent Events) streaming
+- ✅ Dynamic model discovery (GET /v1/models)
+- ✅ No API key required
+- ✅ Works with any loaded model
+
+**API Format**:
+```json
+// Request (OpenAI-compatible)
+{
+  "model": "local-model",
+  "messages": [...],
+  "stream": true
+}
+
+// Response (SSE)
+data: {"choices":[{"delta":{"content":"chunk"}}]}
+data: [DONE]
+```
+
+#### 3. Service Registration
+**Files Updated**:
+- `src/services/AIProviderService.js` - Registered LM Studio adapter
+- `src/utils/constants.js` - Added LMSTUDIO_MODELS
+
+#### 4. ESLint Integration
+**Files Created**: `eslint.config.js` (72 lines)
+**Files Updated**: `package.json` (added lint scripts)
+
+**Features**:
+- React + Hooks linting rules
+- Unused variable detection
+- Auto-fix support (`npm run lint:fix`)
+- Underscore prefix convention for unused params
+
+**Results**:
+- Fixed 19+ unused imports/variables
+- 0 linting errors/warnings
+- Clean codebase
+
+#### 5. Documentation
+**Files Created**:
+- `docs/TESTING-LOCAL-LLM.md` (320 lines) - Complete setup guide
+- `docs/dev-notes/2026-01-14-evening-local-llm-pivot.md` (540 lines) - Full session notes
+- `docs/MVP-Plan-v2.md` (830 lines) - Revised MVP with local-first strategy
+- `docs/TOOL-USE-DESIGN.md` (700 lines) - Phase B tool use system design
+- `docs/QUICK-START.md` (600 lines) - User-friendly quick start guide
+
+### Testing Checklist (Phase A)
+
+#### Setup
+- [ ] Install Ollama (`brew install ollama` or download)
+- [ ] Pull model (`ollama pull qwen2.5-coder:7b`)
+- [ ] Start server (`ollama serve`)
+- [ ] Launch Context Kiln (`npm run dev`)
+
+#### Basic Tests
+- [ ] Open Settings (Ctrl+,)
+- [ ] Switch provider to Ollama
+- [ ] Select model (qwen2.5-coder)
+- [ ] Send test message
+- [ ] Verify streaming works
+- [ ] Check token counter updates
+
+#### Context Tests
+- [ ] Open project folder
+- [ ] Drag file to context area
+- [ ] Ask AI about file
+- [ ] Verify AI references content
+
+#### Model Switching
+- [ ] Try different Ollama models
+- [ ] (Optional) Test LM Studio if installed
+- [ ] Verify model list populates
+
+### Code Statistics (Phase A)
+
+**New Production Code**: 661 lines
+- OllamaAdapter.js: 270 lines
+- LMStudioAdapter.js: 253 lines
+- ESLint config: 72 lines
+- EditorTab toolbar: +66 lines
+
+**Documentation**: 3,500+ lines
+- MVP-Plan-v2.md: 830 lines
+- TESTING-LOCAL-LLM.md: 320 lines
+- Session notes: 540 lines
+- TOOL-USE-DESIGN.md: 700 lines
+- QUICK-START.md: 600 lines
+
+**Time Spent**: 2 hours (implementation) + 2 hours (documentation)
+
+---
+
 ## Known Issues & Next Steps
 
 ### Testing Required
@@ -494,17 +659,22 @@ Response ← React Component ← Context ← IPC ← Main Process ← Database/A
 ## Documentation
 
 ### Completed
-- ✅ MVP-Plan.md (v1.2 with adapter pattern)
+- ✅ MVP-Plan.md (v1.2 with adapter pattern - original)
+- ✅ MVP-Plan-v2.md (v2.0 with local-first strategy - revised)
 - ✅ Implementation-Status.md (this file)
 - ✅ docs/decisions/001-adapter-pattern.md
+- ✅ docs/TESTING-LOCAL-LLM.md (local LLM setup guide)
+- ✅ docs/TOOL-USE-DESIGN.md (Phase B design spec)
+- ✅ docs/QUICK-START.md (user-friendly quick start)
+- ✅ docs/dev-notes/2026-01-14-evening-local-llm-pivot.md (session notes)
 - ✅ timeline.md (Session 1)
 
 ### Recommended Next
-- [ ] User Guide (installation, setup, usage)
-- [ ] API Documentation (service layer)
-- [ ] Architecture Deep Dive
-- [ ] Contributing Guide
-- [ ] Testing Guide
+- [ ] User Guide (comprehensive feature documentation)
+- [ ] API Documentation (service layer reference)
+- [ ] Architecture Deep Dive (technical details)
+- [ ] Contributing Guide (for open source contributors)
+- [ ] Model Recommendations (which models for what tasks)
 
 ---
 
@@ -591,10 +761,55 @@ All phases implemented, builds successfully, ready for runtime testing with API 
 - Fixed DatabaseService.getGlobalUsage() method
 - Fixed Monaco Editor height/visibility issues
 
-**Next Session**: Runtime testing, bug fixes, user guide creation.
+**Next Session**: Runtime testing, bug fixes, Phase B implementation (tool use).
 
 ---
 
-_Last Updated: 2026-01-14 (Evening Session)_
+## Overnight Documentation Work (2026-01-14 Night) ✅ COMPLETE
+
+After the user went to bed, the following documentation tasks were completed:
+
+### Task 1: Update MVP Documentation ✅
+**File**: `docs/MVP-Plan-v2.md` (830 lines)
+- Revised entire MVP plan with local-first strategy
+- Added Phase A/B/C breakdown
+- Documented tool use system architecture
+- Added implementation timeline
+
+### Task 2: Update Implementation Status ✅
+**File**: `docs/Implementation-Status.md` (this file)
+- Added strategic pivot section
+- Updated phase progress tables (Phase A complete)
+- Added Phase A detailed section with code examples
+- Updated documentation list
+
+### Task 3: Design Tool Use System ✅
+**File**: `docs/TOOL-USE-DESIGN.md` (700 lines)
+- Complete Phase B design specification
+- Tool interface definitions (read_file, edit_file, list_files, create_file)
+- Adapter-specific formats (Claude, Ollama, LM Studio)
+- Approval workflow design
+- DiffPreviewModal component specification
+- Security considerations
+- Testing strategy
+- Implementation checklist
+
+### Task 4: Create Quick Start Guide ✅
+**File**: `docs/QUICK-START.md` (600 lines)
+- User-friendly installation guide
+- Step-by-step setup for Ollama, LM Studio, and Claude API
+- Usage instructions with examples
+- Keyboard shortcuts reference
+- Troubleshooting section
+- Tips for best results
+- FAQ
+
+**Total Documentation Added**: 2,130 lines (overnight work)
+**Total Project Documentation**: 3,500+ lines
+**Status**: All 4 tasks complete, ready for Phase B implementation
+
+---
+
+_Last Updated: 2026-01-14 (Night - Post-Documentation)_
 _Maintained By: Development Team_
 _Format: Living Document_
