@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Layout as AntLayout, Splitter, Button } from 'antd';
-import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, Splitter, Button, Select, Alert } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined, LayoutOutlined, CloseOutlined } from '@ant-design/icons';
 import FileTree from './FileTree';
 import CenterPanel from './components/CenterPanel';
 import ContextTools from './ContextTools';
 import SettingsModal from './components/SettingsModal';
 import SessionSelector from './components/SessionSelector';
+import { LAYOUT_PRESETS } from './utils/constants';
 import './Layout.css';
 
 // Import context providers
-import { SettingsProvider } from './contexts/SettingsContext';
-import { SessionProvider } from './contexts/SessionContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { SessionProvider, useSession } from './contexts/SessionContext';
 import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { UsageTrackingProvider } from './contexts/UsageTrackingContext';
 import { ClaudeProvider } from './contexts/ClaudeContext';
@@ -26,9 +27,13 @@ function LayoutInner() {
   const [contextFiles, setContextFiles] = useState([]);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [currentLayout, setCurrentLayout] = useState('default');
+  const [error, setError] = useState(null);
 
-  // Access EditorContext
+  // Access contexts
   const { openFile } = useEditor();
+  const { currentSession } = useSession();
+  const { getSetting, setSetting } = useSettings();
 
   const handleAddContextFile = (filePath, isDirectory) => {
     // Calculate relative path from the opened folder
@@ -54,21 +59,46 @@ function LayoutInner() {
     setContextFiles(contextFiles.filter(f => f.id !== fileId));
   };
 
+  // Get current layout configuration
+  const layoutConfig = LAYOUT_PRESETS[currentLayout] || LAYOUT_PRESETS.default;
+
+  /**
+   * Load saved layout preference on mount
+   */
+  useEffect(() => {
+    const savedLayout = getSetting('layoutPreset', 'default');
+    setCurrentLayout(savedLayout);
+  }, [getSetting]);
+
+  /**
+   * Save layout preference when it changes
+   */
+  useEffect(() => {
+    if (currentLayout !== 'default') {
+      setSetting('layoutPreset', currentLayout);
+    }
+  }, [currentLayout, setSetting]);
+
   useEffect(() => {
     // Listen for folder open events from Electron main process
     if (window.electron) {
       window.electron.onFolderOpened(async (data) => {
-        setTreeData(data.data);
-        setOpenFolderPath(data.path);
-        // Clear context files when a new folder is opened
-        setContextFiles([]);
-
-        // Get or create project in database
         try {
+          setError(null);
+          setTreeData(data.data);
+          setOpenFolderPath(data.path);
+          // Clear context files when a new folder is opened
+          setContextFiles([]);
+
+          // Get or create project in database
           const project = await window.electron.getOrCreateProject(data.path);
           setCurrentProjectId(project.id);
         } catch (err) {
-          console.error('Failed to get/create project:', err);
+          console.error('Failed to open folder:', err);
+          setError(`Failed to open project: ${err.message || 'Unknown error'}`);
+          setTreeData(null);
+          setOpenFolderPath(null);
+          setCurrentProjectId(null);
         }
       });
 
@@ -103,6 +133,19 @@ function LayoutInner() {
                       projectPath={openFolderPath}
                       projectId={currentProjectId}
                     />
+                    <Select
+                      value={currentLayout}
+                      onChange={setCurrentLayout}
+                      size="small"
+                      style={{ width: '180px' }}
+                      suffixIcon={<LayoutOutlined />}
+                    >
+                      {Object.entries(LAYOUT_PRESETS).map(([key, preset]) => (
+                        <Select.Option key={key} value={key}>
+                          {preset.name}
+                        </Select.Option>
+                      ))}
+                    </Select>
                     <Button
                       type="default"
                       icon={<SettingOutlined />}
@@ -114,13 +157,30 @@ function LayoutInner() {
                   </div>
                 </Header>
 
+                {/* Error Banner */}
+                {error && (
+                  <Alert
+                    message="Error"
+                    description={error}
+                    type="error"
+                    closable
+                    onClose={() => setError(null)}
+                    style={{
+                      margin: '8px',
+                      borderRadius: '4px',
+                    }}
+                    showIcon
+                  />
+                )}
+
       <Content style={{ flex: 1, overflow: 'hidden' }}>
         <Splitter
+          key={currentLayout}
           style={{ height: '100%', width: '100%' }}
           onResizeEnd={() => {}}
         >
           <Splitter.Pane
-            defaultSize={leftCollapsed ? '0%' : '20%'}
+            defaultSize={leftCollapsed ? '0%' : layoutConfig.panes.fileTree.size}
             resizable={!leftCollapsed}
             style={{
               overflow: 'hidden',
@@ -166,7 +226,7 @@ function LayoutInner() {
           </Splitter.Pane>
 
           <Splitter.Pane
-            defaultSize="55%"
+            defaultSize={layoutConfig.panes.chat.size}
             style={{
               overflow: 'hidden',
               display: 'flex',
@@ -179,7 +239,7 @@ function LayoutInner() {
           </Splitter.Pane>
 
           <Splitter.Pane
-            defaultSize={rightCollapsed ? '0%' : '25%'}
+            defaultSize={rightCollapsed ? '0%' : layoutConfig.panes.contextTools.size}
             resizable={!rightCollapsed}
             style={{
               overflow: 'hidden',
@@ -221,6 +281,8 @@ function LayoutInner() {
                 onAddContextFile={handleAddContextFile}
                 openFolderPath={openFolderPath}
                 onOpenFile={openFile}
+                projectId={currentProjectId}
+                sessionId={currentSession?.uuid}
               />
             </div>
           </Splitter.Pane>
@@ -228,12 +290,16 @@ function LayoutInner() {
       </Content>
               </AntLayout>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        visible={settingsModalVisible}
-        onClose={() => setSettingsModalVisible(false)}
-      />
-    </AntLayout>
+              {/* Settings Modal */}
+              <SettingsModal
+                visible={settingsModalVisible}
+                onClose={() => setSettingsModalVisible(false)}
+              />
+            </ClaudeProvider>
+          </UsageTrackingProvider>
+        </EditorProvider>
+      </SessionProvider>
+    </SettingsProvider>
   );
 }
 

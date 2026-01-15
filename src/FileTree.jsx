@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Tree, Empty } from 'antd';
+import { Tree, Empty, Spin } from 'antd';
 import { getFileIcon, getFolderIcon } from './fileIcons';
 
-function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = null, onOpenFile = null }) {
+const FileTree = React.memo(function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = null, onOpenFile = null }) {
   const [data, setData] = useState(treeData);
   const [expandedKeys, setExpandedKeys] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Custom title renderer that supports drag and double-click
   const createDraggableTitle = (node) => {
@@ -67,12 +68,14 @@ function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = n
   };
 
   useEffect(() => {
+    setIsLoading(true);
     const enrichedData = enrichTreeWithIcons(treeData);
     setData(enrichedData);
     if (enrichedData && enrichedData.length > 0) {
       // Auto-expand first level
       setExpandedKeys(enrichedData.map((item) => item.key));
     }
+    setIsLoading(false);
   }, [treeData]);
 
   const onSelect = (selectedKeys, info) => {
@@ -83,6 +86,22 @@ function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = n
   const onExpand = (expandedKeysValue) => {
     setExpandedKeys(expandedKeysValue);
   };
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          padding: '32px 16px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!data || data.length === 0) {
     return (
@@ -117,6 +136,6 @@ function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = n
       />
     </div>
   );
-}
+});
 
 export default FileTree;

@@ -14,7 +14,7 @@ import { useSettings } from '../contexts/SettingsContext';
  * - Theme support (dark/light)
  * - Settings integration (font size, tab size, word wrap)
  */
-function EditorTab({ filePath }) {
+const EditorTab = React.memo(function EditorTab({ filePath }) {
   const {
     openFiles,
     updateFileContent,
@@ -176,6 +176,6 @@ function EditorTab({ filePath }) {
       </div>
     </div>
   );
-}
+});
 
 export default EditorTab;
