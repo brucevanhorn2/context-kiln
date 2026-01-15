@@ -48,27 +48,38 @@ class AnthropicAdapter extends BaseAdapter {
       messages.push(...internalContext.sessionContext.previousMessages);
     }
 
-    // Build current message with context
-    let content = '';
+    // Handle tool results (for tool execution loop)
+    if (internalContext.toolResults) {
+      // Tool results: assistant's response with tool_use should already be in previousMessages
+      // Now we add user message with tool_result blocks
+      messages.push({
+        role: 'user',
+        content: internalContext.toolResults,
+      });
+    } else {
+      // Normal user message
+      // Build current message with context
+      let content = '';
 
-    // Add context files if present
-    if (internalContext.contextFiles && internalContext.contextFiles.length > 0) {
-      content += this.formatContextFiles(internalContext.contextFiles, 'markdown');
-      content += '\n\n';
+      // Add context files if present
+      if (internalContext.contextFiles && internalContext.contextFiles.length > 0) {
+        content += this.formatContextFiles(internalContext.contextFiles, 'markdown');
+        content += '\n\n';
+      }
+
+      // Add session context summary if present
+      if (internalContext.sessionContext && internalContext.sessionContext.summary) {
+        content += `# Session Context\n${internalContext.sessionContext.summary}\n\n`;
+      }
+
+      // Add user's message
+      content += `# User Question\n${internalContext.userMessage}`;
+
+      messages.push({
+        role: 'user',
+        content: content,
+      });
     }
-
-    // Add session context summary if present
-    if (internalContext.sessionContext && internalContext.sessionContext.summary) {
-      content += `# Session Context\n${internalContext.sessionContext.summary}\n\n`;
-    }
-
-    // Add user's message
-    content += `# User Question\n${internalContext.userMessage}`;
-
-    messages.push({
-      role: 'user',
-      content: content,
-    });
 
     // Build API request
     const request = {

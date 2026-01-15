@@ -8,6 +8,7 @@ const DatabaseService = require('./services/DatabaseService');
 const FileService = require('./services/FileService');
 const SessionService = require('./services/SessionService');
 const TokenCounterService = require('./services/TokenCounterService');
+const ToolExecutionService = require('./services/ToolExecutionService');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -19,6 +20,7 @@ let databaseService;
 let fileService;
 let sessionService;
 let tokenCounterService;
+let toolExecutionService;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -173,6 +175,10 @@ const initializeServices = () => {
     aiProviderService = new AIProviderService(null, databaseService);
     console.log('AIProviderService initialized');
 
+    // Initialize ToolExecutionService (no project root yet)
+    toolExecutionService = new ToolExecutionService(fileService, null);
+    console.log('ToolExecutionService initialized');
+
     console.log('All services initialized successfully');
   } catch (error) {
     console.error('Failed to initialize services:', error);
@@ -195,9 +201,13 @@ const setupIPC = () => {
    * Send message to AI provider
    */
   ipcMain.handle('ai-provider:send-message', async (event, data) => {
-    const { internalContext, model, provider } = data;
+    const { internalContext, model, provider, projectRoot } = data;
 
     try {
+      // Note: Tool execution is handled in the main process via toolExecutionService
+      // The toolContext approval workflow happens in the renderer
+      // For now, we pass null for toolContext - full integration needs more work
+
       // Send message with streaming callbacks
       await aiProviderService.sendMessage(
         internalContext,
@@ -227,7 +237,13 @@ const setupIPC = () => {
             type: 'error',
             error: error.message || 'Unknown error',
           });
-        }
+        },
+        // Tool execution service
+        toolExecutionService,
+        // Tool context (null for now - approval workflow needs renderer integration)
+        null,
+        // Project root
+        projectRoot || null
       );
 
       return { success: true };
@@ -446,6 +462,46 @@ const setupIPC = () => {
       return databaseService.getOrCreateProject(folderPath);
     } catch (error) {
       console.error('Failed to get/create project:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Execute a tool call
+   * Note: For edit_file and create_file, this returns immediately with status 'pending'
+   * The actual execution happens after user approval via tool:approve-execution
+   */
+  ipcMain.handle('tool:execute', async (event, toolCall, projectRoot) => {
+    try {
+      // Update project root if provided
+      if (projectRoot && toolExecutionService) {
+        toolExecutionService.setProjectRoot(projectRoot);
+      }
+
+      // Note: toolContext is passed from renderer, but for approval workflow
+      // we need to communicate back via IPC events
+      // For now, return immediately - full integration requires more work
+      return {
+        success: true,
+        message: 'Tool execution initiated (approval workflow not yet connected)',
+      };
+    } catch (error) {
+      console.error('Failed to execute tool:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Set project root for tool execution service
+   */
+  ipcMain.handle('tool:set-project-root', async (event, projectRoot) => {
+    try {
+      if (toolExecutionService) {
+        toolExecutionService.setProjectRoot(projectRoot);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to set project root:', error);
       throw error;
     }
   });

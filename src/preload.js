@@ -80,4 +80,13 @@ contextBridge.exposeInMainWorld('electron', {
 
   getOrCreateProject: (folderPath) =>
     ipcRenderer.invoke('database:get-or-create-project', folderPath),
+
+  // ============================================================================
+  // TOOL EXECUTION
+  // ============================================================================
+  executeTool: (toolCall, projectRoot) =>
+    ipcRenderer.invoke('tool:execute', toolCall, projectRoot),
+
+  setToolProjectRoot: (projectRoot) =>
+    ipcRenderer.invoke('tool:set-project-root', projectRoot),
 });
