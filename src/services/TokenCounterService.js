@@ -79,7 +79,6 @@ class TokenCounterService {
    * @returns {object} Token breakdown
    */
   countContextTokens(internalContext) {
-    let totalTokens = 0;
     const breakdown = {
       contextFiles: 0,
       userMessage: 0,

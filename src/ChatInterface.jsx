@@ -12,7 +12,6 @@ function ChatInterface() {
     currentModel,
     sendMessage,
     stopStreaming,
-    clearMessages,
   } = useClaude();
 
   const [inputValue, setInputValue] = useState('');

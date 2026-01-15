@@ -55,7 +55,6 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
     const model = editor.getModel();
     if (model) {
       model.onDidChangeContent(() => {
-        const viewState = editor.saveViewState();
         setCanUndo(model.canUndo());
         setCanRedo(model.canRedo());
       });
@@ -127,6 +126,7 @@ const EditorTab = React.memo(function EditorTab({ filePath }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.isDirty, filePath]);
 
   if (!file) {

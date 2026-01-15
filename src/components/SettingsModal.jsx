@@ -31,10 +31,8 @@ const { TextArea } = Input;
  * - Token limits
  */
 function SettingsModal({ visible, onClose }) {
-  const { settings, setSetting, updateSettings } = useSettings();
+  const { settings, setSetting } = useSettings();
   const {
-    availableProviders,
-    availableModels,
     switchProvider,
     switchModel,
     validateApiKey,

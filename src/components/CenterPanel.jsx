@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Splitter, Tabs, Empty } from 'antd';
+import { Splitter, Tabs } from 'antd';
 import { MessageOutlined, FileOutlined } from '@ant-design/icons';
 import ChatInterface from '../ChatInterface';
 import EditorTab from './EditorTab';
@@ -30,6 +30,8 @@ function CenterPanel() {
    */
   useEffect(() => {
     if (activeFilePath) {
+      // Synchronize editor tab with active file
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveEditorTab(activeFilePath);
     }
   }, [activeFilePath]);

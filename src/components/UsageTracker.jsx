@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, Select, Spin } from 'antd';
 import {
-  DollarOutlined,
   ThunderboltOutlined,
   ApiOutlined,
   GlobalOutlined,

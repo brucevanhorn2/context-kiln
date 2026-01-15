@@ -3,11 +3,9 @@ const BaseAdapter = require('./BaseAdapter');
 /**
  * OllamaAdapter - Adapter for Ollama (local AI models)
  *
- * STUB IMPLEMENTATION - To be completed in Phase 2
- *
- * This adapter will support local models via Ollama
- * Endpoint: http://localhost:11434 (default)
- * Format: OpenAI-compatible API
+ * Ollama provides a local API for running LLMs without API keys or costs.
+ * Default endpoint: http://localhost:11434
+ * API documentation: https://github.com/ollama/ollama/blob/main/docs/api.md
  *
  * @extends BaseAdapter
  */
@@ -19,67 +17,250 @@ class OllamaAdapter extends BaseAdapter {
     this.apiKey = null; // Ollama doesn't require API keys
   }
 
+  /**
+   * Format internal context to Ollama API format
+   * Ollama uses OpenAI-compatible chat format
+   */
   formatRequest(internalContext, model) {
-    // TODO Phase 2: Implement Ollama-specific formatting
-    // Ollama uses OpenAI-compatible format but may have quirks
-    throw new Error('OllamaAdapter not yet implemented - coming in Phase 2');
+    const messages = [];
+
+    // Add previous messages from session context if they exist
+    if (internalContext.sessionContext && internalContext.sessionContext.previousMessages) {
+      messages.push(...internalContext.sessionContext.previousMessages);
+    }
+
+    // Build current message with context
+    let content = '';
+
+    // Add context files if present
+    if (internalContext.contextFiles && internalContext.contextFiles.length > 0) {
+      content += this.formatContextFiles(internalContext.contextFiles, 'markdown');
+      content += '\n\n';
+    }
+
+    // Add session context summary if present
+    if (internalContext.sessionContext && internalContext.sessionContext.summary) {
+      content += `# Session Context\n${internalContext.sessionContext.summary}\n\n`;
+    }
+
+    // Add user's message
+    content += `# User Question\n${internalContext.userMessage}`;
+
+    messages.push({
+      role: 'user',
+      content: content,
+    });
+
+    // Build API request
+    const request = {
+      model: model || 'llama3.1',
+      messages: messages,
+      stream: true, // Enable streaming by default
+    };
+
+    // Apply preferences if specified
+    if (internalContext.preferences) {
+      if (internalContext.preferences.temperature !== undefined) {
+        request.options = request.options || {};
+        request.options.temperature = internalContext.preferences.temperature;
+      }
+      if (internalContext.preferences.maxTokens) {
+        request.options = request.options || {};
+        request.options.num_predict = internalContext.preferences.maxTokens;
+      }
+    }
+
+    return request;
   }
 
+  /**
+   * Parse Ollama API response to internal format
+   */
   parseResponse(apiResponse) {
-    // TODO Phase 2: Parse Ollama response format
-    throw new Error('OllamaAdapter not yet implemented - coming in Phase 2');
+    // Handle streaming chunk
+    if (apiResponse.message && apiResponse.message.content) {
+      return {
+        type: 'chunk',
+        content: apiResponse.message.content,
+      };
+    }
+
+    // Handle final message
+    if (apiResponse.done) {
+      return {
+        type: 'complete',
+        usage: {
+          // Ollama provides token counts in final message
+          inputTokens: apiResponse.prompt_eval_count || 0,
+          outputTokens: apiResponse.eval_count || 0,
+        },
+      };
+    }
+
+    return apiResponse;
   }
 
-  getAvailableModels() {
-    // TODO Phase 2: Query Ollama API for installed models
-    // This will vary per user installation
-    return [
-      {
-        id: 'llama3.1',
-        name: 'Llama 3.1 (Local)',
-        contextWindow: 8192,
+  /**
+   * Get available Ollama models
+   * This queries the local Ollama instance for installed models
+   */
+  async getAvailableModels() {
+    try {
+      const response = await fetch(`${this.endpoint}/api/tags`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Transform Ollama model list to our format
+      return data.models.map(model => ({
+        id: model.name,
+        name: model.name,
+        contextWindow: 8192, // Default, may vary by model
         pricing: {
-          inputPerMToken: 0,
+          inputPerMToken: 0, // Local models are free
           outputPerMToken: 0,
         },
-      },
-      {
-        id: 'codellama',
-        name: 'Code Llama (Local)',
-        contextWindow: 16384,
-        pricing: {
-          inputPerMToken: 0,
-          outputPerMToken: 0,
+        size: model.size,
+        modified: model.modified_at,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch Ollama models:', error);
+      // Return default list if Ollama is not running
+      return [
+        {
+          id: 'llama3.1',
+          name: 'Llama 3.1',
+          contextWindow: 8192,
+          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
         },
-      },
-      {
-        id: 'mistral',
-        name: 'Mistral (Local)',
-        contextWindow: 8192,
-        pricing: {
-          inputPerMToken: 0,
-          outputPerMToken: 0,
+        {
+          id: 'codellama',
+          name: 'Code Llama',
+          contextWindow: 16384,
+          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
         },
-      },
-    ];
+        {
+          id: 'qwen2.5-coder',
+          name: 'Qwen 2.5 Coder',
+          contextWindow: 32768,
+          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
+        },
+      ];
+    }
   }
 
+  /**
+   * Send request to Ollama API with streaming support
+   */
   async sendRequest(formattedRequest, onChunk, onComplete, onError) {
-    // TODO Phase 2: Implement Ollama API call
-    // POST to http://localhost:11434/api/chat
-    throw new Error('OllamaAdapter not yet implemented - coming in Phase 2');
+    try {
+      const response = await fetch(`${this.endpoint}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formattedRequest),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.statusText}`);
+      }
+
+      // Ollama streams newline-delimited JSON
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split by newlines and process each complete JSON object
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const data = JSON.parse(line);
+
+            // Handle streaming chunk
+            if (data.message && data.message.content) {
+              const chunk = data.message.content;
+              fullContent += chunk;
+
+              if (onChunk) {
+                onChunk({
+                  type: 'chunk',
+                  content: chunk,
+                });
+              }
+            }
+
+            // Handle completion
+            if (data.done) {
+              const finalResponse = {
+                content: fullContent,
+                model: formattedRequest.model,
+                usage: {
+                  inputTokens: data.prompt_eval_count || 0,
+                  outputTokens: data.eval_count || 0,
+                },
+                cost: 0, // Local models are free
+              };
+
+              if (onComplete) {
+                onComplete(finalResponse);
+              }
+
+              return finalResponse;
+            }
+          } catch (parseError) {
+            console.error('Failed to parse Ollama response line:', parseError);
+          }
+        }
+      }
+    } catch (error) {
+      if (onError) {
+        onError(error);
+      }
+      throw error;
+    }
   }
 
-  async validateApiKey(apiKey) {
-    // Ollama doesn't use API keys, but we can check if it's running
-    // TODO Phase 2: Ping Ollama endpoint to check availability
-    console.warn('Ollama validation not implemented yet');
-    return true; // No key needed for local
+  /**
+   * Validate Ollama availability (no API key needed)
+   * Just checks if Ollama is running
+   */
+  async validateApiKey(_apiKey) {
+    try {
+      const response = await fetch(`${this.endpoint}/api/tags`, {
+        method: 'GET',
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Ollama validation failed:', error);
+      return false;
+    }
   }
 
+  /**
+   * Get user-friendly error message
+   */
   getErrorMessage(error) {
-    if (error.code === 'ECONNREFUSED') {
-      return 'Cannot connect to Ollama. Is it running on localhost:11434?';
+    if (error.code === 'ECONNREFUSED' || error.message.includes('fetch failed')) {
+      return 'Cannot connect to Ollama. Make sure Ollama is running (ollama serve) on localhost:11434';
+    }
+
+    if (error.message.includes('model') && error.message.includes('not found')) {
+      return 'Model not found. Pull it first with: ollama pull <model-name>';
     }
 
     return `Ollama Error: ${error.message}`;

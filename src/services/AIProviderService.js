@@ -1,6 +1,7 @@
 const AnthropicAdapter = require('./adapters/AnthropicAdapter');
 const OpenAIAdapter = require('./adapters/OpenAIAdapter');
 const OllamaAdapter = require('./adapters/OllamaAdapter');
+const LMStudioAdapter = require('./adapters/LMStudioAdapter');
 
 /**
  * AIProviderService - Facade for all AI provider adapters
@@ -38,6 +39,7 @@ class AIProviderService {
     this.registerAdapter('anthropic', AnthropicAdapter);
     this.registerAdapter('openai', OpenAIAdapter);
     this.registerAdapter('ollama', OllamaAdapter);
+    this.registerAdapter('lmstudio', LMStudioAdapter);
   }
 
   /**

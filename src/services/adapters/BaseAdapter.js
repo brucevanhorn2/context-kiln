@@ -35,7 +35,7 @@ class BaseAdapter {
    * @returns {object} Provider-specific API request object
    * @abstract
    */
-  formatRequest(internalContext, model) {
+  formatRequest(_internalContext, _model) {
     throw new Error('formatRequest() must be implemented by subclass');
   }
 
@@ -51,7 +51,7 @@ class BaseAdapter {
    * @returns {number} return.usage.outputTokens - Output tokens used
    * @abstract
    */
-  parseResponse(apiResponse) {
+  parseResponse(_apiResponse) {
     throw new Error('parseResponse() must be implemented by subclass');
   }
 
@@ -79,7 +79,7 @@ class BaseAdapter {
    * @returns {Promise<object>} API response
    * @abstract
    */
-  async sendRequest(formattedRequest, onChunk, onComplete, onError) {
+  async sendRequest(_formattedRequest, _onChunk, _onComplete, _onError) {
     throw new Error('sendRequest() must be implemented by subclass');
   }
 
@@ -90,7 +90,7 @@ class BaseAdapter {
    * @returns {Promise<boolean>} True if valid, false otherwise
    * @abstract
    */
-  async validateApiKey(apiKey) {
+  async validateApiKey(_apiKey) {
     throw new Error('validateApiKey() must be implemented by subclass');
   }
 

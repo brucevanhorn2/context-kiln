@@ -199,7 +199,7 @@ const setupIPC = () => {
 
     try {
       // Send message with streaming callbacks
-      const response = await aiProviderService.sendMessage(
+      await aiProviderService.sendMessage(
         internalContext,
         model,
         provider,

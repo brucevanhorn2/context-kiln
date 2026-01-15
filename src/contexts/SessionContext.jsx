@@ -91,6 +91,8 @@ export const SessionProvider = ({ children }) => {
    * Auto-load sessions when project changes
    */
   useEffect(() => {
+    // Load sessions on mount/project change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSessions();
   }, [loadSessions]);
 

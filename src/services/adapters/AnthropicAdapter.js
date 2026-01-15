@@ -211,7 +211,7 @@ class AnthropicAdapter extends BaseAdapter {
 
         if (event.type === 'message_delta' && event.usage) {
           usage = {
-            inputTokens: formattedRequest.messages.reduce((sum, msg) => {
+            inputTokens: formattedRequest.messages.reduce((sum, _msg) => {
               // Rough estimate - actual input tokens come from API
               return sum;
             }, 0),

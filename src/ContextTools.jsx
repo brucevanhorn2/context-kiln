@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Tabs, Tag, Button, Space, Empty, Tooltip, Flex } from 'antd';
-import { CodeOutlined, DollarOutlined, ToolOutlined, CloseOutlined } from '@ant-design/icons';
+import { Tabs, Tag, Button, Space, Flex } from 'antd';
+import { CodeOutlined, DollarOutlined, ToolOutlined } from '@ant-design/icons';
 import { getFileColor, getFolderColor } from './fileColors';
 import UsageTracker from './components/UsageTracker';
 
@@ -8,7 +8,6 @@ function ContextTools({
   contextFiles = [],
   onRemoveContextFile = null,
   onAddContextFile = null,
-  openFolderPath = null,
   onOpenFile = null,
   projectId = null,
   sessionId = null,
@@ -47,21 +46,6 @@ function ContextTools({
       return getFolderColor();
     }
     return getFileColor(file.filename);
-  };
-
-  // Get display text for tag - gracefully degrade from full path to filename
-  const getDisplayText = (file) => {
-    const longPathThreshold = 40;
-    const filenameThreshold = 25;
-
-    if (file.relativePath.length <= longPathThreshold) {
-      return file.relativePath;
-    } else if (file.filename.length <= filenameThreshold) {
-      return file.filename;
-    } else {
-      // Truncate filename with ellipsis
-      return file.filename.slice(0, filenameThreshold - 3) + '...';
-    }
   };
 
   const renderContextTab = () => {

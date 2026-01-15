@@ -185,18 +185,26 @@ export const UsageTrackingProvider = ({ children }) => {
    * Auto-refresh when context changes
    */
   useEffect(() => {
+    // Fetch project usage on mount/dependency change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshProjectUsage();
   }, [refreshProjectUsage]);
 
   useEffect(() => {
+    // Fetch session usage on mount/dependency change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshSessionUsage();
   }, [refreshSessionUsage]);
 
   useEffect(() => {
+    // Fetch API key usage on mount/dependency change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshApiKeyUsage();
   }, [refreshApiKeyUsage]);
 
   useEffect(() => {
+    // Fetch global usage on mount/dependency change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshGlobalUsage();
   }, [refreshGlobalUsage]);
 

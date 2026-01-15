@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Tree, Empty, Spin } from 'antd';
 import { getFileIcon, getFolderIcon } from './fileIcons';
 
-const FileTree = React.memo(function FileTree({ treeData = null, openFolderPath = null, onAddContextFile = null, onOpenFile = null }) {
+const FileTree = React.memo(function FileTree({ treeData = null, onOpenFile = null }) {
   const [data, setData] = useState(treeData);
   const [expandedKeys, setExpandedKeys] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +68,7 @@ const FileTree = React.memo(function FileTree({ treeData = null, openFolderPath 
   };
 
   useEffect(() => {
+    // Synchronize internal state with prop changes
     setIsLoading(true);
     const enrichedData = enrichTreeWithIcons(treeData);
     setData(enrichedData);
@@ -76,6 +77,7 @@ const FileTree = React.memo(function FileTree({ treeData = null, openFolderPath 
       setExpandedKeys(enrichedData.map((item) => item.key));
     }
     setIsLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treeData]);
 
   const onSelect = (selectedKeys, info) => {
