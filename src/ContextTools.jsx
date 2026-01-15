@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Tabs, Tag, Button, Space, Empty, Tooltip, Flex } from 'antd';
-import { CodeOutlined, FileTextOutlined, ToolOutlined, CloseOutlined } from '@ant-design/icons';
+import { CodeOutlined, DollarOutlined, ToolOutlined, CloseOutlined } from '@ant-design/icons';
 import { getFileColor, getFolderColor } from './fileColors';
+import UsageTracker from './components/UsageTracker';
 
 function ContextTools({
   contextFiles = [],
@@ -9,6 +10,8 @@ function ContextTools({
   onAddContextFile = null,
   openFolderPath = null,
   onOpenFile = null,
+  projectId = null,
+  sessionId = null,
 }) {
   const [activeTab, setActiveTab] = useState('1');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -203,35 +206,10 @@ function ContextTools({
       key: '2',
       label: (
         <span>
-          <FileTextOutlined /> Summary
+          <DollarOutlined /> Usage
         </span>
       ),
-      children: (
-        <div style={{ padding: '12px' }}>
-          <h4 style={{ color: '#d4d4d4', margin: '0 0 12px 0' }}>
-            Context Summary
-          </h4>
-          <p style={{ color: '#999999', fontSize: '13px', lineHeight: '1.6' }}>
-            {contextFiles.length === 0
-              ? 'No files selected. Drag files from the explorer to start building context.'
-              : `You have ${contextFiles.length} file(s) selected for context.`}
-          </p>
-          <div
-            style={{
-              marginTop: '16px',
-              padding: '8px',
-              backgroundColor: '#333333',
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: '#d4d4d4',
-            }}
-          >
-            <div>Total Files: {contextFiles.length}</div>
-            <div>Total Lines: --</div>
-            <div>Token Count: ~5,000</div>
-          </div>
-        </div>
-      ),
+      children: <UsageTracker projectId={projectId} sessionId={sessionId} />,
     },
     {
       key: '3',
