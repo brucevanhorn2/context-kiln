@@ -5,7 +5,8 @@
       "Bash(npm run build:*)",
       "Bash(kill:*)",
       "Bash(curl:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(npm run lint)"
     ]
   }
 }
