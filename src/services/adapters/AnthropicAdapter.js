@@ -268,6 +268,148 @@ class AnthropicAdapter extends BaseAdapter {
   }
 
   /**
+   * Check if this adapter supports tool use
+   */
+  supportsToolUse() {
+    return true;
+  }
+
+  /**
+   * Get tool definitions in Claude format
+   */
+  getToolDefinitions() {
+    return [
+      {
+        name: 'read_file',
+        description: 'Read the contents of a file from the project. Use this to examine code files before making changes.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path from project root (e.g., "src/utils/calculator.js")',
+            },
+            line_start: {
+              type: 'number',
+              description: 'Optional: Start reading from this line number (1-indexed)',
+            },
+            line_end: {
+              type: 'number',
+              description: 'Optional: Stop reading at this line number',
+            },
+          },
+          required: ['path'],
+        },
+      },
+      {
+        name: 'edit_file',
+        description: 'Propose changes to an existing file. This will show a diff preview to the user for approval.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path from project root',
+            },
+            old_content: {
+              type: 'string',
+              description: 'The exact content to replace (for verification)',
+            },
+            new_content: {
+              type: 'string',
+              description: 'The new content to insert',
+            },
+            description: {
+              type: 'string',
+              description: 'Human-readable description of what this change does',
+            },
+          },
+          required: ['path', 'old_content', 'new_content', 'description'],
+        },
+      },
+      {
+        name: 'create_file',
+        description: 'Create a new file in the project. This will show a preview to the user for approval.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path for the new file',
+            },
+            content: {
+              type: 'string',
+              description: 'The complete content for the new file',
+            },
+            description: {
+              type: 'string',
+              description: 'Human-readable description of why this file is being created',
+            },
+          },
+          required: ['path', 'content', 'description'],
+        },
+      },
+      {
+        name: 'list_files',
+        description: 'List files in a directory. Use this to explore the project structure.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Directory path to list (defaults to project root)',
+            },
+            pattern: {
+              type: 'string',
+              description: 'Optional glob pattern to filter files (e.g., "*.js", "**/*.test.ts")',
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'Include subdirectories (default: false)',
+            },
+          },
+          required: [],
+        },
+      },
+    ];
+  }
+
+  /**
+   * Parse tool calls from Claude API response
+   */
+  parseToolCalls(apiResponse) {
+    const toolCalls = [];
+
+    if (!apiResponse.content) {
+      return toolCalls;
+    }
+
+    // Claude returns tool_use blocks in the content array
+    for (const block of apiResponse.content) {
+      if (block.type === 'tool_use') {
+        toolCalls.push({
+          id: block.id,
+          type: block.name,
+          parameters: block.input,
+        });
+      }
+    }
+
+    return toolCalls;
+  }
+
+  /**
+   * Format tool execution result for Claude
+   */
+  formatToolResult(toolCallId, result) {
+    return {
+      type: 'tool_result',
+      tool_use_id: toolCallId,
+      content: JSON.stringify(result, null, 2),
+    };
+  }
+
+  /**
    * Get user-friendly error message
    */
   getErrorMessage(error) {

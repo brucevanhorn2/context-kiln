@@ -13,6 +13,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { UsageTrackingProvider } from './contexts/UsageTrackingContext';
+import { ToolProvider } from './contexts/ToolContext';
 import { ClaudeProvider } from './contexts/ClaudeContext';
 
 const { Header, Content } = AntLayout;
@@ -238,9 +239,11 @@ function Layout() {
       <SessionProvider>
         <EditorProvider>
           <UsageTrackingProvider>
-            <ClaudeProvider>
-              <LayoutInner />
-            </ClaudeProvider>
+            <ToolProvider>
+              <ClaudeProvider>
+                <LayoutInner />
+              </ClaudeProvider>
+            </ToolProvider>
           </UsageTrackingProvider>
         </EditorProvider>
       </SessionProvider>

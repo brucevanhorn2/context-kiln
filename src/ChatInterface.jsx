@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Space, Alert, Spin } from 'antd';
 import { SendOutlined, StopOutlined, RobotOutlined } from '@ant-design/icons';
 import { useClaude } from './contexts/ClaudeContext';
+import DiffPreviewModal from './components/DiffPreviewModal';
 
 function ChatInterface() {
   const {
@@ -179,6 +180,9 @@ function ChatInterface() {
           />
         )}
       </Space.Compact>
+
+      {/* Diff Preview Modal */}
+      <DiffPreviewModal />
     </div>
   );
 }

@@ -251,6 +251,39 @@ class LMStudioAdapter extends BaseAdapter {
   }
 
   /**
+   * Check if this adapter supports tool use
+   * Note: LM Studio uses OpenAI-compatible format, but tool use depends on the loaded model
+   * For Phase B, we'll return false until we add model-specific support
+   */
+  supportsToolUse() {
+    return false; // TODO: Add model-specific detection
+  }
+
+  /**
+   * Get tool definitions in OpenAI format (LM Studio compatible)
+   * Currently returns empty array - depends on loaded model
+   */
+  getToolDefinitions() {
+    return []; // TODO: Implement when model supports it
+  }
+
+  /**
+   * Parse tool calls from LM Studio response
+   * Currently returns empty array - depends on loaded model
+   */
+  parseToolCalls(_apiResponse) {
+    return []; // TODO: Implement when model supports it
+  }
+
+  /**
+   * Format tool execution result for LM Studio
+   * Currently a stub - depends on loaded model
+   */
+  formatToolResult(_toolCallId, _result) {
+    return {}; // TODO: Implement when model supports it
+  }
+
+  /**
    * Get user-friendly error message
    */
   getErrorMessage(error) {

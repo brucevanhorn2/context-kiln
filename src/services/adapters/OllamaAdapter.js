@@ -252,6 +252,39 @@ class OllamaAdapter extends BaseAdapter {
   }
 
   /**
+   * Check if this adapter supports tool use
+   * Note: Only certain Ollama models support function calling (e.g., qwen2.5-coder, llama3.1:70b+)
+   * For Phase B, we'll return false until we add model-specific support
+   */
+  supportsToolUse() {
+    return false; // TODO: Add model-specific detection
+  }
+
+  /**
+   * Get tool definitions in Ollama format (function calling)
+   * Currently returns empty array - not all Ollama models support this
+   */
+  getToolDefinitions() {
+    return []; // TODO: Implement when model supports it
+  }
+
+  /**
+   * Parse tool calls from Ollama response
+   * Currently returns empty array - not all Ollama models support this
+   */
+  parseToolCalls(_apiResponse) {
+    return []; // TODO: Implement when model supports it
+  }
+
+  /**
+   * Format tool execution result for Ollama
+   * Currently a stub - not all Ollama models support this
+   */
+  formatToolResult(_toolCallId, _result) {
+    return {}; // TODO: Implement when model supports it
+  }
+
+  /**
    * Get user-friendly error message
    */
   getErrorMessage(error) {
