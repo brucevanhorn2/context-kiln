@@ -14,7 +14,7 @@ import {
 import { KeyOutlined, SettingOutlined, RobotOutlined } from '@ant-design/icons';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClaude } from '../contexts/ClaudeContext';
-import { ANTHROPIC_MODELS, OPENAI_MODELS, OLLAMA_MODELS } from '../utils/constants';
+import { ANTHROPIC_MODELS, OPENAI_MODELS, OLLAMA_MODELS, LMSTUDIO_MODELS, LOCAL_MODELS } from '../utils/constants';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -123,6 +123,10 @@ function SettingsModal({ visible, onClose }) {
         return Object.values(OPENAI_MODELS);
       case 'ollama':
         return Object.values(OLLAMA_MODELS);
+      case 'lmstudio':
+        return Object.values(LMSTUDIO_MODELS);
+      case 'local':
+        return Object.values(LOCAL_MODELS);
       default:
         return [];
     }
@@ -165,13 +169,20 @@ function SettingsModal({ visible, onClose }) {
                   { value: 'anthropic', label: 'Anthropic (Claude)' },
                   {
                     value: 'openai',
-                    label: 'OpenAI (GPT) - Phase 2',
+                    label: 'OpenAI (GPT)',
                     disabled: true,
                   },
                   {
                     value: 'ollama',
-                    label: 'Ollama (Local) - Phase 2',
-                    disabled: true,
+                    label: 'Ollama (Local API)',
+                  },
+                  {
+                    value: 'lmstudio',
+                    label: 'LM Studio (Local API)',
+                  },
+                  {
+                    value: 'local',
+                    label: 'Local (Embedded) - Phase E',
                   },
                 ]}
               />

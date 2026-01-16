@@ -2,6 +2,7 @@ const AnthropicAdapter = require('./adapters/AnthropicAdapter');
 const OpenAIAdapter = require('./adapters/OpenAIAdapter');
 const OllamaAdapter = require('./adapters/OllamaAdapter');
 const LMStudioAdapter = require('./adapters/LMStudioAdapter');
+const LocalModelAdapter = require('./adapters/LocalModelAdapter');
 
 /**
  * AIProviderService - Facade for all AI provider adapters
@@ -40,6 +41,31 @@ class AIProviderService {
     this.registerAdapter('openai', OpenAIAdapter);
     this.registerAdapter('ollama', OllamaAdapter);
     this.registerAdapter('lmstudio', LMStudioAdapter);
+    // Local adapter registered separately via setLocalModelService()
+  }
+
+  /**
+   * Register LocalModelService and create LocalModelAdapter
+   * Phase E: Must be called after LocalModelService is initialized
+   *
+   * @param {LocalModelService} localModelService - Instance of LocalModelService
+   */
+  setLocalModelService(localModelService) {
+    if (!localModelService) {
+      throw new Error('LocalModelService instance is required');
+    }
+
+    // Create LocalModelAdapter instance with the service
+    const localAdapter = new LocalModelAdapter({}, localModelService);
+
+    // Register it directly as an instance (not a class)
+    this.adapters['local'] = {
+      AdapterClass: LocalModelAdapter,
+      instance: localAdapter,
+      config: { localModelService },
+    };
+
+    console.log('[AIProviderService] LocalModelAdapter registered');
   }
 
   /**

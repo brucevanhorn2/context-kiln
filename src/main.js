@@ -10,6 +10,7 @@ const SessionService = require('./services/SessionService');
 const TokenCounterService = require('./services/TokenCounterService');
 const ToolExecutionService = require('./services/ToolExecutionService');
 const CodeIndexService = require('./services/CodeIndexService');
+const LocalModelService = require('./services/LocalModelService');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -23,6 +24,7 @@ let sessionService;
 let tokenCounterService;
 let toolExecutionService;
 let codeIndexService;
+let localModelService;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -113,6 +115,66 @@ const createMenu = () => {
                 mainWindow.webContents.send('index-status', {
                   status: 'error',
                   message: `Failed to build index: ${error.message}`,
+                });
+              }
+            }
+          },
+        },
+        {
+          type: 'separator',
+        },
+        {
+          label: 'Load Model...',
+          accelerator: 'Ctrl+Shift+M',
+          click: async () => {
+            const result = await dialog.showOpenDialog(mainWindow, {
+              title: 'Load GGUF Model',
+              properties: ['openFile'],
+              filters: [
+                { name: 'GGUF Models', extensions: ['gguf'] },
+                { name: 'All Files', extensions: ['*'] },
+              ],
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const modelPath = result.filePaths[0];
+
+              try {
+                // Show loading notification
+                mainWindow.webContents.send('model-status', {
+                  status: 'loading',
+                  message: 'Loading model... This may take a minute.',
+                });
+
+                // Get file stats for recommendations
+                const stats = await require('fs').promises.stat(modelPath);
+                const modelSizeMB = (stats.size / 1024 / 1024).toFixed(2);
+
+                // Get recommendations
+                const recommendations = localModelService.recommendModelSettings(parseFloat(modelSizeMB));
+
+                if (!recommendations.canLoad) {
+                  throw new Error(recommendations.warnings.join('\n'));
+                }
+
+                // Load model with recommended settings
+                const modelInfo = await localModelService.loadModel(modelPath, recommendations.settings);
+
+                // Notify renderer
+                mainWindow.webContents.send('model-loaded', modelInfo);
+
+                mainWindow.webContents.send('model-status', {
+                  status: 'success',
+                  message: `Model loaded: ${modelInfo.name}`,
+                  modelInfo,
+                });
+
+                console.log('[Main] Model loaded successfully:', modelInfo);
+              } catch (error) {
+                console.error('[Main] Failed to load model:', error);
+                mainWindow.webContents.send('model-status', {
+                  status: 'error',
+                  message: `Failed to load model: ${error.message}`,
                 });
               }
             }
@@ -223,6 +285,14 @@ const initializeServices = () => {
     // Initialize ToolExecutionService (no project root yet)
     toolExecutionService = new ToolExecutionService(fileService, null);
     console.log('ToolExecutionService initialized');
+
+    // Initialize LocalModelService (Phase E - embedded models)
+    localModelService = new LocalModelService();
+    console.log('LocalModelService initialized');
+
+    // Register LocalModelAdapter with AIProviderService
+    aiProviderService.setLocalModelService(localModelService);
+    console.log('LocalModelAdapter registered');
 
     console.log('All services initialized successfully');
   } catch (error) {
