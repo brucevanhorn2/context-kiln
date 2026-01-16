@@ -45,8 +45,10 @@
 |-------|--------|----------|-------|------------------|
 | **Phase A** | 🟢 Complete | 100% | 5/5 | Local LLMs (Ollama, LM Studio), ESLint, Toolbar |
 | **Phase B** | 🟢 Complete | 100% | 10/10 | Tool use, function calling, diff preview, approval workflow |
+| **Phase B.5** | ⚪ Not Started | 0% | 0/4 | Search tools (grep-style search, find files) |
+| **Phase B.75** | ⚪ Not Started | 0% | 0/4 | Lightweight code index (symbols, imports, fast lookups) |
 | **Phase C** | ⚪ Not Started | 0% | 0/5 | Multi-step workflows, planning, error recovery |
-| **Agentic** | 🟡 In Progress | 88% | 15/17 | **Phase A & B Done, Phase C Remains** |
+| **Agentic** | 🟡 In Progress | 75% | 15/20 | **Phase A & B Done, B.5/B.75/C Remain** |
 
 **Legend**:
 - 🟢 Complete

@@ -11,6 +11,7 @@
 **Status**: COMPLETE
 **Files Created**:
 - `docs/STRATEGIC-VISION.md` - Comprehensive vision document
+- `docs/CODE-INDEXING-DESIGN.md` - Code search and indexing design
 - This file (ACTION-ITEMS.md)
 
 **Key Insights Captured**:
@@ -18,6 +19,91 @@
 - Subscription adapters > embedded models in value
 - POC proxy (x-copilot-proxy) proves feasibility
 - Frontier models remain primary value, local is secondary
+- **AI needs same tools as Claude Code: grep, find, go-to-definition**
+
+---
+
+### 1.5. 🔥 Add Search Tools (Phase B.5) - TONIGHT
+
+**Goal**: Give AI the ability to search/explore codebase
+**Priority**: CRITICAL - Blocks everything else
+**Effort**: 2-3 hours
+
+**Why Critical**: Without search tools, AI is blind. Currently it has to guess which files to read, wasting tokens and getting wrong answers 30% of the time.
+
+**Tasks**:
+1. [ ] Add `search_files` tool to ToolExecutionService (1 hour)
+   - Grep-style text search
+   - Regex support
+   - File pattern filtering
+
+2. [ ] Enhance `find_files` tool (30 min)
+   - Already have list_files, extend it
+   - Better glob pattern support
+
+3. [ ] Update AnthropicAdapter tool definitions (30 min)
+   - Add search_files schema
+   - Add find_files enhancements
+
+4. [ ] Test with real searches (30 min)
+   - "Find where calculateDiff is defined"
+   - "Find all imports of AIProviderService"
+   - "Find all TODO comments"
+
+**Success Criteria**:
+- AI can find function definitions without guessing
+- Search completes in <5 seconds for 1,000 files
+- Zero false positives for exact matches
+
+**Files to Modify**:
+- `src/services/ToolExecutionService.js` - Add executeSearchFiles(), executeFindFiles()
+- `src/services/adapters/AnthropicAdapter.js` - Add tool definitions
+- `src/services/adapters/BaseAdapter.js` - Add to tool list
+
+---
+
+### 1.75. 🔥 Add Lightweight Index (Phase B.75) - THIS WEEK
+
+**Goal**: 10x speed boost for symbol lookups
+**Priority**: HIGH - Major performance improvement
+**Effort**: 3-4 hours
+
+**What It Does**: Build a symbol index (exports, imports, top-level functions) so AI can instantly find "where is X defined" without scanning 1,000 files.
+
+**Tasks**:
+1. [ ] Add database tables (30 min)
+   - code_symbols (function/class/variable names)
+   - code_imports (what imports what)
+   - code_file_metadata (for incremental updates)
+
+2. [ ] Create CodeIndexService (2 hours)
+   - buildIndex(projectRoot) - scan and index all files
+   - extractJavaScriptSymbols() - parse exports/functions
+   - extractJavaScriptImports() - parse import statements
+   - findDefinition(symbolName) - query index
+
+3. [ ] Add new AI tools (1 hour)
+   - find_definition(symbol) - "Where is this defined?"
+   - find_importers(symbol) - "What files import this?"
+
+4. [ ] Build index on project open (30 min)
+   - Background process
+   - Show progress indicator
+   - Incremental updates on file changes
+
+**Success Criteria**:
+- Index builds in <60 seconds for 2,000 files
+- find_definition 10x faster (50ms vs 2000ms)
+- 85%+ accuracy
+
+**Files to Create**:
+- `src/services/CodeIndexService.js` (new)
+- Update `src/database/schema.sql` (add tables)
+
+**Files to Modify**:
+- `src/services/ToolExecutionService.js` - Add find_definition, find_importers
+- `src/main.js` - Build index on folder open
+- `src/services/adapters/AnthropicAdapter.js` - Add tool definitions
 
 ---
 
