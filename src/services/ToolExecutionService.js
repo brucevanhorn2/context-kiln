@@ -63,6 +63,18 @@ class ToolExecutionService {
         case 'create_file':
           return await this.executeCreateFile(parameters, toolContext);
 
+        case 'search_files':
+          return await this.executeSearchFiles(parameters);
+
+        case 'find_files':
+          return await this.executeFindFiles(parameters);
+
+        case 'find_definition':
+          return await this.executeFindDefinition(parameters);
+
+        case 'find_importers':
+          return await this.executeFindImporters(parameters);
+
         default:
           throw new Error(`Unknown tool type: ${type}`);
       }
@@ -402,6 +414,447 @@ class ToolExecutionService {
     }
 
     return entries;
+  }
+
+  /**
+   * Execute search_files tool
+   *
+   * Search for text patterns in files (grep-style)
+   *
+   * @param {object} params - { pattern, path?, regex?, case_sensitive?, file_pattern? }
+   * @returns {Promise<object>} Search results
+   */
+  async executeSearchFiles(params) {
+    const {
+      pattern,
+      path: searchPath = '.',
+      regex = false,
+      case_sensitive = false,
+      file_pattern = null,
+    } = params;
+
+    if (!pattern) {
+      throw new Error('search_files requires a pattern parameter');
+    }
+
+    // Validate and resolve search path
+    const absoluteSearchPath = this.validatePath(searchPath);
+
+    // Find all files to search
+    const files = await this.findAllSourceFiles(absoluteSearchPath, file_pattern);
+
+    const matches = [];
+    let searchedFiles = 0;
+    const startTime = Date.now();
+
+    // Search each file
+    for (const file of files) {
+      // Skip if already have many matches (performance)
+      if (matches.length >= 100) {
+        break;
+      }
+
+      searchedFiles++;
+
+      try {
+        const content = await fs.readFile(file, 'utf-8');
+        const lines = content.split('\n');
+
+        lines.forEach((line, index) => {
+          if (matches.length >= 100) return; // Limit total matches
+
+          if (this.matchesPattern(line, pattern, regex, case_sensitive)) {
+            const column = case_sensitive
+              ? line.indexOf(pattern)
+              : line.toLowerCase().indexOf(pattern.toLowerCase());
+
+            matches.push({
+              file: path.relative(this.projectRoot, file),
+              line: index + 1,
+              column: column >= 0 ? column + 1 : 1,
+              content: line.trim(),
+            });
+          }
+        });
+      } catch (error) {
+        // Skip files that can't be read (permissions, encoding, etc.)
+        console.warn(`Skipping file ${file}:`, error.message);
+      }
+    }
+
+    const searchTimeMs = Date.now() - startTime;
+
+    return {
+      success: true,
+      matches,
+      count: matches.length,
+      searched_files: searchedFiles,
+      search_time_ms: searchTimeMs,
+      truncated: matches.length >= 100,
+    };
+  }
+
+  /**
+   * Execute find_files tool
+   *
+   * Find files by name pattern (glob)
+   *
+   * @param {object} params - { pattern, path?, type? }
+   * @returns {Promise<object>} Found files
+   */
+  async executeFindFiles(params) {
+    const { pattern, path: searchPath = '.', type = 'file' } = params;
+
+    if (!pattern) {
+      throw new Error('find_files requires a pattern parameter');
+    }
+
+    // Validate and resolve search path
+    const absoluteSearchPath = this.validatePath(searchPath);
+
+    // Find all files/directories
+    const allEntries = await this.findAllEntries(absoluteSearchPath);
+
+    // Filter by pattern and type
+    const matches = allEntries.filter((entry) => {
+      // Check type filter
+      if (type === 'file' && entry.isDirectory) return false;
+      if (type === 'directory' && !entry.isDirectory) return false;
+
+      // Check name pattern
+      const basename = path.basename(entry.path);
+      return minimatch(basename, pattern);
+    });
+
+    // Limit results
+    const limitedMatches = matches.slice(0, MAX_LIST_ITEMS);
+
+    return {
+      success: true,
+      files: limitedMatches.map((entry) => ({
+        path: path.relative(this.projectRoot, entry.path),
+        isDirectory: entry.isDirectory,
+        size: entry.size,
+      })),
+      count: limitedMatches.length,
+      truncated: matches.length > MAX_LIST_ITEMS,
+    };
+  }
+
+  /**
+   * Check if text matches pattern
+   *
+   * @param {string} text - Text to search in
+   * @param {string} pattern - Pattern to search for
+   * @param {boolean} isRegex - Whether pattern is a regex
+   * @param {boolean} caseSensitive - Case sensitive search
+   * @returns {boolean} Whether text matches pattern
+   */
+  matchesPattern(text, pattern, isRegex, caseSensitive) {
+    if (isRegex) {
+      const flags = caseSensitive ? '' : 'i';
+      try {
+        const regex = new RegExp(pattern, flags);
+        return regex.test(text);
+      } catch (error) {
+        console.error('Invalid regex pattern:', pattern, error);
+        return false;
+      }
+    } else {
+      if (caseSensitive) {
+        return text.includes(pattern);
+      } else {
+        return text.toLowerCase().includes(pattern.toLowerCase());
+      }
+    }
+  }
+
+  /**
+   * Find all source files recursively
+   *
+   * @param {string} dirPath - Directory to search
+   * @param {string} filePattern - Optional glob pattern to filter files
+   * @returns {Promise<Array<string>>} Array of absolute file paths
+   */
+  async findAllSourceFiles(dirPath, filePattern = null) {
+    const files = [];
+
+    const walk = async (currentPath) => {
+      try {
+        const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(currentPath, entry.name);
+
+          // Skip directories that should be ignored
+          if (entry.isDirectory()) {
+            if (this.shouldSkipDirectory(entry.name)) {
+              continue;
+            }
+            await walk(fullPath);
+          } else {
+            // Check file pattern if specified
+            if (filePattern && !minimatch(entry.name, filePattern)) {
+              continue;
+            }
+
+            // Skip non-text files
+            if (this.shouldSkipFile(fullPath)) {
+              continue;
+            }
+
+            files.push(fullPath);
+          }
+        }
+      } catch (error) {
+        // Skip directories we can't read
+        console.warn(`Skipping directory ${currentPath}:`, error.message);
+      }
+    };
+
+    await walk(dirPath);
+    return files;
+  }
+
+  /**
+   * Find all entries (files and directories) recursively
+   *
+   * @param {string} dirPath - Directory to search
+   * @returns {Promise<Array<object>>} Array of entry objects
+   */
+  async findAllEntries(dirPath) {
+    const entries = [];
+
+    const walk = async (currentPath) => {
+      try {
+        const items = await fs.readdir(currentPath, { withFileTypes: true });
+
+        for (const item of items) {
+          const fullPath = path.join(currentPath, item.name);
+
+          // Skip ignored directories
+          if (item.isDirectory() && this.shouldSkipDirectory(item.name)) {
+            continue;
+          }
+
+          const stats = await fs.stat(fullPath);
+
+          entries.push({
+            path: fullPath,
+            isDirectory: item.isDirectory(),
+            size: stats.size,
+          });
+
+          // Recurse into subdirectories
+          if (item.isDirectory()) {
+            await walk(fullPath);
+          }
+        }
+      } catch (error) {
+        // Skip directories we can't read
+        console.warn(`Skipping directory ${currentPath}:`, error.message);
+      }
+    };
+
+    await walk(dirPath);
+    return entries;
+  }
+
+  /**
+   * Check if directory should be skipped
+   *
+   * @param {string} name - Directory name
+   * @returns {boolean} Whether to skip
+   */
+  shouldSkipDirectory(name) {
+    const skipDirs = [
+      'node_modules',
+      '.git',
+      'dist',
+      'build',
+      'coverage',
+      '.next',
+      'out',
+      'target',
+      '__pycache__',
+      '.venv',
+      'venv',
+    ];
+    return skipDirs.includes(name);
+  }
+
+  /**
+   * Check if file should be skipped (binary, minified, etc.)
+   *
+   * @param {string} filePath - File path
+   * @returns {boolean} Whether to skip
+   */
+  shouldSkipFile(filePath) {
+    const skipPatterns = [
+      /\.min\.js$/,
+      /\.map$/,
+      /\.jpg$/,
+      /\.jpeg$/,
+      /\.png$/,
+      /\.gif$/,
+      /\.ico$/,
+      /\.pdf$/,
+      /\.zip$/,
+      /\.tar$/,
+      /\.gz$/,
+      /\.exe$/,
+      /\.dll$/,
+      /\.so$/,
+      /\.dylib$/,
+      /\.woff$/,
+      /\.woff2$/,
+      /\.ttf$/,
+      /\.eot$/,
+      /\.mp4$/,
+      /\.mp3$/,
+      /\.wav$/,
+    ];
+
+    return skipPatterns.some((pattern) => pattern.test(filePath));
+  }
+
+  /**
+   * Execute find_definition tool - Query code index for symbol definition
+   * Phase B.75: Index-based "where is X defined?" queries
+   *
+   * @param {object} params - Tool parameters
+   * @param {string} params.symbol_name - Symbol name to find
+   * @returns {object} Tool result with definitions or error
+   */
+  async executeFindDefinition(params) {
+    const { symbol_name } = params;
+
+    if (!symbol_name) {
+      return {
+        success: false,
+        error: 'symbol_name parameter is required',
+      };
+    }
+
+    try {
+      // Check if CodeIndexService is available
+      if (!this.codeIndexService) {
+        return {
+          success: false,
+          error: 'Code index not available. Please open a project first.',
+        };
+      }
+
+      // Query index
+      const definitions = await this.codeIndexService.findDefinition(symbol_name);
+
+      if (definitions.length === 0) {
+        return {
+          success: true,
+          found: false,
+          message: `No definition found for symbol: ${symbol_name}`,
+          symbol_name: symbol_name,
+        };
+      }
+
+      // Format results
+      const results = definitions.map((def) => ({
+        file: def.file_path,
+        line: def.line_number,
+        column: def.column_number,
+        type: def.symbol_type,
+        exported: def.is_exported === 1,
+        signature: def.signature,
+        documentation: def.documentation,
+      }));
+
+      return {
+        success: true,
+        found: true,
+        symbol_name: symbol_name,
+        definitions: results,
+        count: results.length,
+      };
+    } catch (error) {
+      console.error('[ToolExecutionService] Find definition error:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Execute find_importers tool - Query code index for files that import a symbol
+   * Phase B.75: Index-based "what files import X?" queries
+   *
+   * @param {object} params - Tool parameters
+   * @param {string} params.symbol_name - Symbol name to find importers for
+   * @returns {object} Tool result with importers or error
+   */
+  async executeFindImporters(params) {
+    const { symbol_name } = params;
+
+    if (!symbol_name) {
+      return {
+        success: false,
+        error: 'symbol_name parameter is required',
+      };
+    }
+
+    try {
+      // Check if CodeIndexService is available
+      if (!this.codeIndexService) {
+        return {
+          success: false,
+          error: 'Code index not available. Please open a project first.',
+        };
+      }
+
+      // Query index
+      const importers = await this.codeIndexService.findImporters(symbol_name);
+
+      if (importers.length === 0) {
+        return {
+          success: true,
+          found: false,
+          message: `No importers found for symbol: ${symbol_name}`,
+          symbol_name: symbol_name,
+        };
+      }
+
+      // Format results
+      const results = importers.map((imp) => ({
+        file: imp.source_file,
+        line: imp.line_number,
+        imported_from: imp.imported_from,
+        import_type: imp.import_type,
+      }));
+
+      return {
+        success: true,
+        found: true,
+        symbol_name: symbol_name,
+        importers: results,
+        count: results.length,
+      };
+    } catch (error) {
+      console.error('[ToolExecutionService] Find importers error:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Set the CodeIndexService instance
+   * Called after CodeIndexService is initialized with a project
+   *
+   * @param {CodeIndexService} codeIndexService - CodeIndexService instance
+   */
+  setCodeIndexService(codeIndexService) {
+    this.codeIndexService = codeIndexService;
   }
 }
 

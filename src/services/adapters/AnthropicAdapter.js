@@ -382,6 +382,87 @@ class AnthropicAdapter extends BaseAdapter {
           required: [],
         },
       },
+      {
+        name: 'search_files',
+        description: 'Search for a text pattern in files within the project. Use this to find where code is defined, used, or to locate specific patterns. Returns file paths, line numbers, and matching content. Very useful for "find where X is defined" or "find all usages of Y" queries.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              description: 'The text or regex pattern to search for (e.g., "function calculateDiff" or "import.*DatabaseService")',
+            },
+            path: {
+              type: 'string',
+              description: 'Directory to search in (defaults to entire project). Use "src" to search only source files.',
+            },
+            regex: {
+              type: 'boolean',
+              description: 'Whether pattern is a regular expression (default: false)',
+            },
+            case_sensitive: {
+              type: 'boolean',
+              description: 'Case sensitive search (default: false)',
+            },
+            file_pattern: {
+              type: 'string',
+              description: 'Only search files matching this glob pattern (e.g., "*.js" or "*.{ts,tsx}")',
+            },
+          },
+          required: ['pattern'],
+        },
+      },
+      {
+        name: 'find_files',
+        description: 'Find files by name pattern using glob syntax. Use this to locate files when you know or can guess part of the filename (e.g., "find all Service files" or "find test files").',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              description: 'Glob pattern to match filenames (e.g., "*Service.js", "**/*.test.js", "*.{ts,tsx}")',
+            },
+            path: {
+              type: 'string',
+              description: 'Directory to search in (defaults to entire project)',
+            },
+            type: {
+              type: 'string',
+              enum: ['file', 'directory', 'any'],
+              description: 'Type of filesystem entry to find (default: file)',
+            },
+          },
+          required: ['pattern'],
+        },
+      },
+      {
+        name: 'find_definition',
+        description: 'Find where a symbol is defined using the code index. Use this for fast "where is X defined?" queries. This tool queries a pre-built index of code symbols (functions, classes, variables) and returns file paths and line numbers. Much faster than search_files for finding definitions (50ms vs 2000ms).',
+        input_schema: {
+          type: 'object',
+          properties: {
+            symbol_name: {
+              type: 'string',
+              description: 'The name of the symbol to find (e.g., "calculateDiff", "DatabaseService", "API_KEY")',
+            },
+          },
+          required: ['symbol_name'],
+        },
+      },
+      {
+        name: 'find_importers',
+        description: 'Find all files that import a specific symbol using the code index. Use this for "what files use X?" queries. Returns a list of files that import the symbol, along with line numbers and import types. Useful for understanding dependencies and refactoring impact.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            symbol_name: {
+              type: 'string',
+              description: 'The name of the symbol to find importers for (e.g., "DatabaseService", "calculateDiff")',
+            },
+          },
+          required: ['symbol_name'],
+        },
+      },
     ];
   }
 

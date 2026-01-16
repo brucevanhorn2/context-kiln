@@ -9,6 +9,7 @@ const FileService = require('./services/FileService');
 const SessionService = require('./services/SessionService');
 const TokenCounterService = require('./services/TokenCounterService');
 const ToolExecutionService = require('./services/ToolExecutionService');
+const CodeIndexService = require('./services/CodeIndexService');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -21,6 +22,7 @@ let fileService;
 let sessionService;
 let tokenCounterService;
 let toolExecutionService;
+let codeIndexService;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -70,6 +72,49 @@ const createMenu = () => {
                 path: folderPath,
                 data: treeData,
               });
+
+              // Build code index for the project (Phase B.75)
+              try {
+                console.log('[Main] Building code index for:', folderPath);
+
+                // Get or create project in database
+                const project = databaseService.getOrCreateProject(folderPath);
+
+                // Initialize CodeIndexService
+                codeIndexService = new CodeIndexService(databaseService);
+                await codeIndexService.initialize(folderPath, project.id);
+
+                // Pass CodeIndexService to ToolExecutionService
+                toolExecutionService.setCodeIndexService(codeIndexService);
+
+                // Build index with progress updates
+                mainWindow.webContents.send('index-status', {
+                  status: 'building',
+                  message: 'Building code index...',
+                });
+
+                const stats = await codeIndexService.buildIndex((current, total) => {
+                  mainWindow.webContents.send('index-progress', {
+                    current,
+                    total,
+                    percentage: Math.round((current / total) * 100),
+                  });
+                });
+
+                mainWindow.webContents.send('index-status', {
+                  status: 'complete',
+                  message: `Index built: ${stats.symbolsFound} symbols, ${stats.importsFound} imports`,
+                  stats,
+                });
+
+                console.log('[Main] Code index built:', stats);
+              } catch (error) {
+                console.error('[Main] Error building code index:', error);
+                mainWindow.webContents.send('index-status', {
+                  status: 'error',
+                  message: `Failed to build index: ${error.message}`,
+                });
+              }
             }
           },
         },

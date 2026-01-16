@@ -81,11 +81,75 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('auto_archive_threshold', '100000'),
   ('layout_preset', 'default');
 
+-- Code symbols table - Index of functions, classes, variables, etc.
+-- Phase B.75: Lightweight code indexing for fast "find definition" queries
+CREATE TABLE IF NOT EXISTS code_symbols (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  file_path TEXT NOT NULL,  -- Relative path from project root
+  symbol_name TEXT NOT NULL,
+  symbol_type TEXT NOT NULL,  -- 'function', 'class', 'variable', 'constant', 'method'
+  line_number INTEGER,
+  column_number INTEGER DEFAULT 0,
+  is_exported BOOLEAN DEFAULT 0,
+  documentation TEXT,  -- JSDoc or docstring
+  signature TEXT,  -- Function signature or type info
+  last_indexed DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+-- Create indexes for fast symbol lookups
+CREATE INDEX IF NOT EXISTS idx_code_symbols_project_id ON code_symbols(project_id);
+CREATE INDEX IF NOT EXISTS idx_code_symbols_symbol_name ON code_symbols(symbol_name);
+CREATE INDEX IF NOT EXISTS idx_code_symbols_file_path ON code_symbols(file_path);
+CREATE INDEX IF NOT EXISTS idx_code_symbols_symbol_type ON code_symbols(symbol_type);
+CREATE INDEX IF NOT EXISTS idx_code_symbols_is_exported ON code_symbols(is_exported);
+
+-- Code imports table - Track import/require relationships
+CREATE TABLE IF NOT EXISTS code_imports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  source_file TEXT NOT NULL,  -- File that contains the import
+  imported_symbol TEXT,  -- Specific symbol imported (null for * imports)
+  imported_from TEXT NOT NULL,  -- Module path or file path
+  import_type TEXT NOT NULL,  -- 'named', 'default', 'namespace', 'dynamic'
+  line_number INTEGER,
+  last_indexed DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+-- Create indexes for import queries
+CREATE INDEX IF NOT EXISTS idx_code_imports_project_id ON code_imports(project_id);
+CREATE INDEX IF NOT EXISTS idx_code_imports_source_file ON code_imports(source_file);
+CREATE INDEX IF NOT EXISTS idx_code_imports_imported_symbol ON code_imports(imported_symbol);
+CREATE INDEX IF NOT EXISTS idx_code_imports_imported_from ON code_imports(imported_from);
+
+-- Code file metadata table - Track file changes for incremental index updates
+CREATE TABLE IF NOT EXISTS code_file_metadata (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  file_path TEXT NOT NULL,
+  last_modified DATETIME,  -- File system modification time
+  file_size INTEGER,
+  content_hash TEXT,  -- SHA-256 hash for change detection
+  last_indexed DATETIME DEFAULT CURRENT_TIMESTAMP,
+  index_status TEXT DEFAULT 'pending',  -- 'pending', 'indexed', 'error'
+  error_message TEXT,
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  UNIQUE(project_id, file_path)
+);
+
+-- Create indexes for file metadata queries
+CREATE INDEX IF NOT EXISTS idx_code_file_metadata_project_id ON code_file_metadata(project_id);
+CREATE INDEX IF NOT EXISTS idx_code_file_metadata_file_path ON code_file_metadata(file_path);
+CREATE INDEX IF NOT EXISTS idx_code_file_metadata_last_modified ON code_file_metadata(last_modified);
+CREATE INDEX IF NOT EXISTS idx_code_file_metadata_index_status ON code_file_metadata(index_status);
+
 -- Database version for migrations
 CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER PRIMARY KEY,
   applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Set initial version
-INSERT OR IGNORE INTO schema_version (version) VALUES (1);
+-- Set initial version (2 for code indexing support)
+INSERT OR IGNORE INTO schema_version (version) VALUES (2);
