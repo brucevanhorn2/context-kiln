@@ -1,7 +1,16 @@
-const { LlamaModel, LlamaContext, LlamaChatSession } = require('node-llama-cpp');
 const path = require('path');
 const fs = require('fs').promises;
 const os = require('os');
+
+// node-llama-cpp is ESM-only, so we lazy-load it
+let llamaCppModule = null;
+
+async function getLlamaCpp() {
+  if (!llamaCppModule) {
+    llamaCppModule = await import('node-llama-cpp');
+  }
+  return llamaCppModule;
+}
 
 /**
  * LocalModelService - Embedded model hosting using node-llama-cpp
@@ -61,6 +70,9 @@ class LocalModelService {
       const stats = await fs.stat(modelPath);
       const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2);
       console.log(`[LocalModelService] Model file size: ${fileSizeMB} MB`);
+
+      // Lazy load node-llama-cpp
+      const { LlamaModel, LlamaContext, LlamaChatSession } = await getLlamaCpp();
 
       // Determine GPU layers (auto-detect if not specified)
       const gpuLayers = options.gpuLayers !== undefined

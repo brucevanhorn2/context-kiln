@@ -11,6 +11,7 @@ const TokenCounterService = require('./services/TokenCounterService');
 const ToolExecutionService = require('./services/ToolExecutionService');
 const CodeIndexService = require('./services/CodeIndexService');
 const LocalModelService = require('./services/LocalModelService');
+const logService = require('./services/LogService');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -260,43 +261,47 @@ const createMenu = () => {
  */
 const initializeServices = () => {
   try {
+    // Initialize LogService first
+    const logFile = logService.initialize();
+    logService.info('Main', `Log file: ${logFile}`);
+
     // Initialize DatabaseService
     databaseService = new DatabaseService();
     databaseService.initialize();
-    console.log('DatabaseService initialized');
+    logService.info('Main', 'DatabaseService initialized');
 
     // Initialize TokenCounterService
     tokenCounterService = new TokenCounterService();
     tokenCounterService.initialize();
-    console.log('TokenCounterService initialized');
+    logService.info('Main', 'TokenCounterService initialized');
 
     // Initialize FileService (no project root yet)
     fileService = new FileService();
-    console.log('FileService initialized');
+    logService.info('Main', 'FileService initialized');
 
     // Initialize SessionService
     sessionService = new SessionService(fileService, databaseService);
-    console.log('SessionService initialized');
+    logService.info('Main', 'SessionService initialized');
 
     // Initialize AIProviderService
     aiProviderService = new AIProviderService(null, databaseService);
-    console.log('AIProviderService initialized');
+    logService.info('Main', 'AIProviderService initialized');
 
     // Initialize ToolExecutionService (no project root yet)
     toolExecutionService = new ToolExecutionService(fileService, null);
-    console.log('ToolExecutionService initialized');
+    logService.info('Main', 'ToolExecutionService initialized');
 
     // Initialize LocalModelService (Phase E - embedded models)
     localModelService = new LocalModelService();
-    console.log('LocalModelService initialized');
+    logService.info('Main', 'LocalModelService initialized');
 
     // Register LocalModelAdapter with AIProviderService
     aiProviderService.setLocalModelService(localModelService);
-    console.log('LocalModelAdapter registered');
+    logService.info('Main', 'LocalModelAdapter registered');
 
-    console.log('All services initialized successfully');
+    logService.info('Main', 'All services initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize services:', error);
+    logService.error('Main', 'Failed to initialize services', error.message);
     dialog.showErrorBox(
       'Initialization Error',
       `Failed to initialize services: ${error.message}`
@@ -616,12 +621,52 @@ const setupIPC = () => {
       }
       return { success: true };
     } catch (error) {
-      console.error('Failed to set project root:', error);
+      logService.error('Main', 'Failed to set project root', error.message);
       throw error;
     }
   });
 
-  console.log('IPC handlers registered');
+  // ============================================================================
+  // LOGGING HANDLERS
+  // ============================================================================
+
+  /**
+   * Log from renderer process
+   */
+  ipcMain.handle('log:write', async (event, level, source, message, data) => {
+    switch (level) {
+      case 'debug':
+        logService.debug(source, message, data);
+        break;
+      case 'info':
+        logService.info(source, message, data);
+        break;
+      case 'warn':
+        logService.warn(source, message, data);
+        break;
+      case 'error':
+        logService.error(source, message, data);
+        break;
+      default:
+        logService.info(source, message, data);
+    }
+  });
+
+  /**
+   * Get recent logs
+   */
+  ipcMain.handle('log:get-recent', async (event, lines) => {
+    return logService.getRecentLogs(lines);
+  });
+
+  /**
+   * Get log file path
+   */
+  ipcMain.handle('log:get-path', async () => {
+    return logService.getLogFilePath();
+  });
+
+  logService.info('Main', 'IPC handlers registered');
 };
 
 app.on('ready', () => {

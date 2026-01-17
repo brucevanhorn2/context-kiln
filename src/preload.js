@@ -89,4 +89,22 @@ contextBridge.exposeInMainWorld('electron', {
 
   setToolProjectRoot: (projectRoot) =>
     ipcRenderer.invoke('tool:set-project-root', projectRoot),
+
+  // ============================================================================
+  // LOGGING
+  // ============================================================================
+  log: {
+    debug: (source, message, data) =>
+      ipcRenderer.invoke('log:write', 'debug', source, message, data),
+    info: (source, message, data) =>
+      ipcRenderer.invoke('log:write', 'info', source, message, data),
+    warn: (source, message, data) =>
+      ipcRenderer.invoke('log:write', 'warn', source, message, data),
+    error: (source, message, data) =>
+      ipcRenderer.invoke('log:write', 'error', source, message, data),
+    getRecent: (lines = 100) =>
+      ipcRenderer.invoke('log:get-recent', lines),
+    getPath: () =>
+      ipcRenderer.invoke('log:get-path'),
+  },
 });

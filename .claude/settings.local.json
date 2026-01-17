@@ -5,7 +5,11 @@
       "Bash(npm run build:*)",
       "Bash(kill:*)",
       "Bash(curl:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(npx electron-rebuild:*)",
+      "Bash(npm test:*)",
+      "Bash(node:*)"
     ]
   }
 }

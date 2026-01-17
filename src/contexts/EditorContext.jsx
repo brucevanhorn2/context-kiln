@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('EditorContext');
 
 /**
  * EditorContext - Manage open files and editor state
@@ -89,11 +92,13 @@ export const EditorProvider = ({ children }) => {
    */
   const openFile = useCallback(
     async (filePath, setActive = true) => {
+      log.info('openFile called', { filePath });
       try {
         setError(null);
 
         // If already open, just activate it
         if (isFileOpen(filePath)) {
+          log.debug('File already open, activating', { filePath });
           if (setActive) {
             setActiveFilePath(filePath);
           }
@@ -101,9 +106,11 @@ export const EditorProvider = ({ children }) => {
         }
 
         setIsLoading(true);
+        log.debug('Loading file via IPC...');
 
         // Read file via IPC
         const fileData = await window.electron.getFileMetadata(filePath);
+        log.info('File loaded', { path: fileData?.path, language: fileData?.language });
 
         // Add to open files
         const newFile = {
@@ -124,7 +131,7 @@ export const EditorProvider = ({ children }) => {
 
         setIsLoading(false);
       } catch (err) {
-        console.error('Failed to open file:', err);
+        log.error('Failed to open file', { error: err.message, filePath });
         setError(`Failed to open file: ${err.message}`);
         setIsLoading(false);
       }
@@ -149,7 +156,7 @@ export const EditorProvider = ({ children }) => {
       if (file.isDirty && !force) {
         // TODO: Show confirmation dialog
         // For now, just warn
-        console.warn(`File ${filePath} has unsaved changes`);
+        log.warn('File has unsaved changes', { filePath });
         return false;
       }
 
@@ -184,7 +191,7 @@ export const EditorProvider = ({ children }) => {
 
       if (dirtyFiles.length > 0 && !force) {
         // TODO: Show confirmation dialog
-        console.warn(`${dirtyFiles.length} files have unsaved changes`);
+        log.warn('Files have unsaved changes', { count: dirtyFiles.length });
         return false;
       }
 
@@ -264,7 +271,7 @@ export const EditorProvider = ({ children }) => {
         setIsLoading(false);
         return true;
       } catch (err) {
-        console.error('Failed to save file:', err);
+        log.error('Failed to save file', { error: err.message, filePath });
         setError(`Failed to save file: ${err.message}`);
         setIsLoading(false);
         return false;
@@ -297,7 +304,7 @@ export const EditorProvider = ({ children }) => {
       }
       return true;
     } catch (err) {
-      console.error('Failed to save all files:', err);
+      log.error('Failed to save all files', { error: err.message });
       return false;
     }
   }, [openFiles, saveFile]);

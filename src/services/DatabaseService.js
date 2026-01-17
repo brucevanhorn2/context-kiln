@@ -339,6 +339,31 @@ class DatabaseService {
   }
 
   /**
+   * Get global usage across all projects
+   *
+   * @param {string} timeRange - 'all', 'day', 'week', 'month'
+   * @returns {object} Usage totals
+   */
+  getGlobalUsage(timeRange = 'all') {
+    const whereClause = this._buildTimeRangeClause(timeRange);
+    const query = `
+      SELECT
+        COUNT(*) as call_count,
+        SUM(input_tokens) as total_input_tokens,
+        SUM(output_tokens) as total_output_tokens,
+        SUM(cost_usd) as total_cost_usd,
+        provider,
+        model
+      FROM token_usage
+      WHERE 1=1 ${whereClause}
+      GROUP BY provider, model
+      ORDER BY total_cost_usd DESC
+    `;
+
+    return this.db.prepare(query).all();
+  }
+
+  /**
    * Build time range WHERE clause
    * @private
    */
@@ -498,7 +523,9 @@ class DatabaseService {
       .run(
         projectId,
         relativePath,
-        metadata.last_modified,
+        metadata.last_modified instanceof Date
+          ? metadata.last_modified.toISOString()
+          : metadata.last_modified,
         metadata.file_size,
         metadata.content_hash,
         metadata.index_status,

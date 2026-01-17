@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Tabs } from 'antd';
-import { MessageOutlined, FileOutlined, CloseOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Splitter, Tabs } from 'antd';
+import { FileOutlined } from '@ant-design/icons';
 import ChatInterface from '../ChatInterface';
 import EditorTab from './EditorTab';
 import { useEditor } from '../contexts/EditorContext';
 
 /**
- * CenterPanel - Tabbed container for chat and file editor
+ * CenterPanel - Split view with chat on top and editor tabs on bottom
  *
  * Features:
- * - Chat tab (always present)
+ * - Chat interface (top pane, always visible)
+ * - Editor tabs (bottom pane, shows when files are open)
+ * - Resizable split between chat and editor
  * - Dynamic editor tabs for open files
  * - Close button on editor tabs
  * - Dirty indicator (unsaved changes)
- * - Active tab management
  */
 function CenterPanel() {
   const {
@@ -23,101 +24,89 @@ function CenterPanel() {
     closeFile,
   } = useEditor();
 
-  const [activeTabKey, setActiveTabKey] = useState('chat');
-
-  /**
-   * When a file becomes active, switch to its tab
-   */
-  useEffect(() => {
-    if (activeFilePath) {
-      setActiveTabKey(activeFilePath);
-    }
-  }, [activeFilePath]);
-
   /**
    * Handle tab change
    */
   const handleTabChange = (key) => {
-    setActiveTabKey(key);
-
-    if (key !== 'chat') {
-      // Switching to an editor tab
-      setActiveFile(key);
-    }
+    setActiveFile(key);
   };
 
   /**
    * Handle editor tab close
    */
   const handleTabClose = async (targetKey) => {
-    // Don't allow closing chat tab
-    if (targetKey === 'chat') return;
-
-    const success = await closeFile(targetKey, false);
-
-    if (success) {
-      // If we closed the active tab, switch to chat
-      if (targetKey === activeTabKey) {
-        setActiveTabKey('chat');
-      }
-    }
+    await closeFile(targetKey, false);
   };
 
   /**
-   * Build tab items
+   * Build tab items for open files
    */
-  const tabItems = [
-    // Chat tab (always present)
-    {
-      key: 'chat',
-      label: (
-        <span>
-          <MessageOutlined />
-          Chat
-        </span>
-      ),
-      closable: false,
-      children: <ChatInterface />,
-    },
-    // Editor tabs (one per open file)
-    ...openFiles.map((file) => ({
-      key: file.path,
-      label: (
-        <span>
-          <FileOutlined />
-          {file.path.split(/[/\\]/).pop()}
-          {file.isDirty && (
-            <span style={{ marginLeft: '4px', color: '#ff9800' }}>●</span>
-          )}
-        </span>
-      ),
-      closable: true,
-      children: <EditorTab filePath={file.path} />,
-    })),
-  ];
+  const tabItems = openFiles.map((file) => ({
+    key: file.path,
+    label: (
+      <span>
+        <FileOutlined style={{ marginRight: 4 }} />
+        {file.path.split(/[/\\]/).pop()}
+        {file.isDirty && (
+          <span style={{ marginLeft: 4, color: '#ff9800' }}>●</span>
+        )}
+      </span>
+    ),
+    closable: true,
+    children: <EditorTab filePath={file.path} />,
+  }));
+
+  const hasOpenFiles = openFiles.length > 0;
 
   return (
-    <Tabs
-      type="editable-card"
-      activeKey={activeTabKey}
-      onChange={handleTabChange}
-      onEdit={(targetKey, action) => {
-        if (action === 'remove') {
-          handleTabClose(targetKey);
-        }
-      }}
-      hideAdd // We add tabs by double-clicking files, not with + button
-      items={tabItems}
-      style={{
-        height: '100%',
-        background: '#1e1e1e',
-      }}
-      tabBarStyle={{
-        margin: 0,
-        background: '#252526',
-        borderBottom: '1px solid #333',
-      }}
-    />
+    <Splitter
+      layout="vertical"
+      style={{ height: '100%', width: '100%' }}
+    >
+      {/* Chat pane (top) */}
+      <Splitter.Panel
+        defaultSize={hasOpenFiles ? '50%' : '100%'}
+        min="20%"
+        max="80%"
+        style={{ overflow: 'hidden' }}
+      >
+        <ChatInterface />
+      </Splitter.Panel>
+
+      {/* Editor pane (bottom) - only show if files are open */}
+      {hasOpenFiles && (
+        <Splitter.Panel
+          defaultSize="50%"
+          min="20%"
+          max="80%"
+          style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        >
+          <Tabs
+            type="editable-card"
+            activeKey={activeFilePath}
+            onChange={handleTabChange}
+            onEdit={(targetKey, action) => {
+              if (action === 'remove') {
+                handleTabClose(targetKey);
+              }
+            }}
+            hideAdd
+            items={tabItems}
+            style={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            tabBarStyle={{
+              margin: 0,
+              background: '#252526',
+              borderBottom: '1px solid #333',
+              flexShrink: 0,
+            }}
+          />
+        </Splitter.Panel>
+      )}
+    </Splitter>
   );
 }
 

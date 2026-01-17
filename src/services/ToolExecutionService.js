@@ -12,10 +12,25 @@
 
 const path = require('path');
 const fs = require('fs').promises;
+const crypto = require('crypto');
 const { minimatch } = require('minimatch');
-const { v4: uuidv4 } = require('uuid');
 const diffUtils = require('../utils/diffUtils');
-const { getLanguageForFile } = require('../utils/constants');
+
+// Simple language detection for file extensions (CommonJS-compatible)
+const LANGUAGE_MAP = {
+  js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+  py: 'python', rb: 'ruby', java: 'java', c: 'c', cpp: 'cpp', h: 'c',
+  cs: 'csharp', go: 'go', rs: 'rust', php: 'php', swift: 'swift',
+  kt: 'kotlin', scala: 'scala', r: 'r', sql: 'sql', sh: 'shell',
+  bash: 'shell', zsh: 'shell', html: 'html', htm: 'html', css: 'css',
+  scss: 'scss', less: 'less', json: 'json', xml: 'xml', yaml: 'yaml',
+  yml: 'yaml', md: 'markdown', txt: 'plaintext'
+};
+
+function getLanguageForFile(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  return LANGUAGE_MAP[ext] || 'plaintext';
+}
 
 // Security limits
 const MAX_FILE_SIZE = 1024 * 1024; // 1MB
@@ -180,7 +195,7 @@ class ToolExecutionService {
     const diff = diffUtils.calculateDiff(currentContent, updatedContent);
 
     // Create tool call for approval
-    const toolCallId = uuidv4();
+    const toolCallId = crypto.randomUUID();
     const toolCallForApproval = {
       id: toolCallId,
       type: 'edit_file',
@@ -290,7 +305,7 @@ class ToolExecutionService {
     }
 
     // Create tool call for approval
-    const toolCallId = uuidv4();
+    const toolCallId = crypto.randomUUID();
     const toolCallForApproval = {
       id: toolCallId,
       type: 'create_file',
