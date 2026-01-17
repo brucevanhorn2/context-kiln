@@ -8,6 +8,9 @@ const DatabaseService = require('./services/DatabaseService');
 const FileService = require('./services/FileService');
 const SessionService = require('./services/SessionService');
 const TokenCounterService = require('./services/TokenCounterService');
+const ToolExecutionService = require('./services/ToolExecutionService');
+const CodeIndexService = require('./services/CodeIndexService');
+const LocalModelService = require('./services/LocalModelService');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -19,6 +22,9 @@ let databaseService;
 let fileService;
 let sessionService;
 let tokenCounterService;
+let toolExecutionService;
+let codeIndexService;
+let localModelService;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -68,6 +74,109 @@ const createMenu = () => {
                 path: folderPath,
                 data: treeData,
               });
+
+              // Build code index for the project (Phase B.75)
+              try {
+                console.log('[Main] Building code index for:', folderPath);
+
+                // Get or create project in database
+                const project = databaseService.getOrCreateProject(folderPath);
+
+                // Initialize CodeIndexService
+                codeIndexService = new CodeIndexService(databaseService);
+                await codeIndexService.initialize(folderPath, project.id);
+
+                // Pass CodeIndexService to ToolExecutionService
+                toolExecutionService.setCodeIndexService(codeIndexService);
+
+                // Build index with progress updates
+                mainWindow.webContents.send('index-status', {
+                  status: 'building',
+                  message: 'Building code index...',
+                });
+
+                const stats = await codeIndexService.buildIndex((current, total) => {
+                  mainWindow.webContents.send('index-progress', {
+                    current,
+                    total,
+                    percentage: Math.round((current / total) * 100),
+                  });
+                });
+
+                mainWindow.webContents.send('index-status', {
+                  status: 'complete',
+                  message: `Index built: ${stats.symbolsFound} symbols, ${stats.importsFound} imports`,
+                  stats,
+                });
+
+                console.log('[Main] Code index built:', stats);
+              } catch (error) {
+                console.error('[Main] Error building code index:', error);
+                mainWindow.webContents.send('index-status', {
+                  status: 'error',
+                  message: `Failed to build index: ${error.message}`,
+                });
+              }
+            }
+          },
+        },
+        {
+          type: 'separator',
+        },
+        {
+          label: 'Load Model...',
+          accelerator: 'Ctrl+Shift+M',
+          click: async () => {
+            const result = await dialog.showOpenDialog(mainWindow, {
+              title: 'Load GGUF Model',
+              properties: ['openFile'],
+              filters: [
+                { name: 'GGUF Models', extensions: ['gguf'] },
+                { name: 'All Files', extensions: ['*'] },
+              ],
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+              const modelPath = result.filePaths[0];
+
+              try {
+                // Show loading notification
+                mainWindow.webContents.send('model-status', {
+                  status: 'loading',
+                  message: 'Loading model... This may take a minute.',
+                });
+
+                // Get file stats for recommendations
+                const stats = await require('fs').promises.stat(modelPath);
+                const modelSizeMB = (stats.size / 1024 / 1024).toFixed(2);
+
+                // Get recommendations
+                const recommendations = localModelService.recommendModelSettings(parseFloat(modelSizeMB));
+
+                if (!recommendations.canLoad) {
+                  throw new Error(recommendations.warnings.join('\n'));
+                }
+
+                // Load model with recommended settings
+                const modelInfo = await localModelService.loadModel(modelPath, recommendations.settings);
+
+                // Notify renderer
+                mainWindow.webContents.send('model-loaded', modelInfo);
+
+                mainWindow.webContents.send('model-status', {
+                  status: 'success',
+                  message: `Model loaded: ${modelInfo.name}`,
+                  modelInfo,
+                });
+
+                console.log('[Main] Model loaded successfully:', modelInfo);
+              } catch (error) {
+                console.error('[Main] Failed to load model:', error);
+                mainWindow.webContents.send('model-status', {
+                  status: 'error',
+                  message: `Failed to load model: ${error.message}`,
+                });
+              }
             }
           },
         },
@@ -173,6 +282,18 @@ const initializeServices = () => {
     aiProviderService = new AIProviderService(null, databaseService);
     console.log('AIProviderService initialized');
 
+    // Initialize ToolExecutionService (no project root yet)
+    toolExecutionService = new ToolExecutionService(fileService, null);
+    console.log('ToolExecutionService initialized');
+
+    // Initialize LocalModelService (Phase E - embedded models)
+    localModelService = new LocalModelService();
+    console.log('LocalModelService initialized');
+
+    // Register LocalModelAdapter with AIProviderService
+    aiProviderService.setLocalModelService(localModelService);
+    console.log('LocalModelAdapter registered');
+
     console.log('All services initialized successfully');
   } catch (error) {
     console.error('Failed to initialize services:', error);
@@ -195,9 +316,13 @@ const setupIPC = () => {
    * Send message to AI provider
    */
   ipcMain.handle('ai-provider:send-message', async (event, data) => {
-    const { internalContext, model, provider } = data;
+    const { internalContext, model, provider, projectRoot } = data;
 
     try {
+      // Note: Tool execution is handled in the main process via toolExecutionService
+      // The toolContext approval workflow happens in the renderer
+      // For now, we pass null for toolContext - full integration needs more work
+
       // Send message with streaming callbacks
       const response = await aiProviderService.sendMessage(
         internalContext,
@@ -227,7 +352,13 @@ const setupIPC = () => {
             type: 'error',
             error: error.message || 'Unknown error',
           });
-        }
+        },
+        // Tool execution service
+        toolExecutionService,
+        // Tool context (null for now - approval workflow needs renderer integration)
+        null,
+        // Project root
+        projectRoot || null
       );
 
       return { success: true };
@@ -446,6 +577,46 @@ const setupIPC = () => {
       return databaseService.getOrCreateProject(folderPath);
     } catch (error) {
       console.error('Failed to get/create project:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Execute a tool call
+   * Note: For edit_file and create_file, this returns immediately with status 'pending'
+   * The actual execution happens after user approval via tool:approve-execution
+   */
+  ipcMain.handle('tool:execute', async (event, toolCall, projectRoot) => {
+    try {
+      // Update project root if provided
+      if (projectRoot && toolExecutionService) {
+        toolExecutionService.setProjectRoot(projectRoot);
+      }
+
+      // Note: toolContext is passed from renderer, but for approval workflow
+      // we need to communicate back via IPC events
+      // For now, return immediately - full integration requires more work
+      return {
+        success: true,
+        message: 'Tool execution initiated (approval workflow not yet connected)',
+      };
+    } catch (error) {
+      console.error('Failed to execute tool:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Set project root for tool execution service
+   */
+  ipcMain.handle('tool:set-project-root', async (event, projectRoot) => {
+    try {
+      if (toolExecutionService) {
+        toolExecutionService.setProjectRoot(projectRoot);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to set project root:', error);
       throw error;
     }
   });

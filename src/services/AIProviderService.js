@@ -1,6 +1,8 @@
 const AnthropicAdapter = require('./adapters/AnthropicAdapter');
 const OpenAIAdapter = require('./adapters/OpenAIAdapter');
 const OllamaAdapter = require('./adapters/OllamaAdapter');
+const LMStudioAdapter = require('./adapters/LMStudioAdapter');
+const LocalModelAdapter = require('./adapters/LocalModelAdapter');
 
 /**
  * AIProviderService - Facade for all AI provider adapters
@@ -38,6 +40,32 @@ class AIProviderService {
     this.registerAdapter('anthropic', AnthropicAdapter);
     this.registerAdapter('openai', OpenAIAdapter);
     this.registerAdapter('ollama', OllamaAdapter);
+    this.registerAdapter('lmstudio', LMStudioAdapter);
+    // Local adapter registered separately via setLocalModelService()
+  }
+
+  /**
+   * Register LocalModelService and create LocalModelAdapter
+   * Phase E: Must be called after LocalModelService is initialized
+   *
+   * @param {LocalModelService} localModelService - Instance of LocalModelService
+   */
+  setLocalModelService(localModelService) {
+    if (!localModelService) {
+      throw new Error('LocalModelService instance is required');
+    }
+
+    // Create LocalModelAdapter instance with the service
+    const localAdapter = new LocalModelAdapter({}, localModelService);
+
+    // Register it directly as an instance (not a class)
+    this.adapters['local'] = {
+      AdapterClass: LocalModelAdapter,
+      instance: localAdapter,
+      config: { localModelService },
+    };
+
+    console.log('[AIProviderService] LocalModelAdapter registered');
   }
 
   /**
@@ -175,6 +203,9 @@ class AIProviderService {
    * @param {function} onChunk - Callback for streaming chunks
    * @param {function} onComplete - Callback when complete
    * @param {function} onError - Callback for errors
+   * @param {object} toolExecutionService - Tool execution service (optional)
+   * @param {object} toolContext - Tool context for approval (optional)
+   * @param {string} projectRoot - Project root path (optional)
    * @returns {Promise<object>} Response in internal format
    */
   async sendMessage(
@@ -183,7 +214,10 @@ class AIProviderService {
     providerName = null,
     onChunk = null,
     onComplete = null,
-    onError = null
+    onError = null,
+    toolExecutionService = null,
+    toolContext = null,
+    projectRoot = null
   ) {
     const provider = providerName || this.activeProvider;
 
@@ -196,8 +230,16 @@ class AIProviderService {
     try {
       const adapter = this._getAdapter(provider);
 
+      // Check if adapter supports tool use
+      const supportsTools = adapter.supportsToolUse && adapter.supportsToolUse();
+
       // Format request using adapter
       const formattedRequest = adapter.formatRequest(internalContext, model);
+
+      // Add tool definitions if supported
+      if (supportsTools && toolExecutionService) {
+        formattedRequest.tools = adapter.getToolDefinitions();
+      }
 
       // Send request
       const response = await adapter.sendRequest(
@@ -212,6 +254,30 @@ class AIProviderService {
               internalContext,
               adapterResponse.usage
             );
+          }
+
+          // Check for tool calls in response
+          if (supportsTools && toolExecutionService && toolContext && projectRoot) {
+            const toolCalls = adapter.parseToolCalls(adapterResponse);
+
+            if (toolCalls && toolCalls.length > 0) {
+              // Execute tools and send results back
+              await this._handleToolCalls(
+                toolCalls,
+                adapterResponse,
+                internalContext,
+                adapter,
+                toolExecutionService,
+                toolContext,
+                projectRoot,
+                model,
+                provider,
+                onChunk,
+                onComplete,
+                onError
+              );
+              return; // Don't call onComplete yet - tool loop will handle it
+            }
           }
 
           if (onComplete) {
@@ -237,6 +303,146 @@ class AIProviderService {
       }
 
       throw enhancedError;
+    }
+  }
+
+  /**
+   * Handle tool calls from AI response
+   * Executes tools and sends results back to AI
+   *
+   * @param {Array} toolCalls - Array of tool call objects
+   * @param {object} assistantResponse - The assistant's response containing tool_use blocks
+   * @param {object} originalContext - The original internal context
+   * @param {BaseAdapter} adapter - Adapter instance
+   * @param {ToolExecutionService} toolExecutionService - Tool execution service
+   * @param {object} toolContext - Tool context for approval
+   * @param {string} projectRoot - Project root path
+   * @param {string} model - Model being used
+   * @param {string} provider - Provider name
+   * @param {function} onChunk - Streaming callback
+   * @param {function} onComplete - Completion callback
+   * @param {function} onError - Error callback
+   * @private
+   */
+  async _handleToolCalls(
+    toolCalls,
+    assistantResponse,
+    originalContext,
+    adapter,
+    toolExecutionService,
+    toolContext,
+    projectRoot,
+    model,
+    provider,
+    onChunk,
+    onComplete,
+    onError
+  ) {
+    try {
+      // Set project root
+      toolExecutionService.setProjectRoot(projectRoot);
+
+      // Execute each tool call
+      const toolResults = [];
+
+      for (const toolCall of toolCalls) {
+        try {
+          // Execute tool (this will handle approval workflow)
+          const result = await toolExecutionService.executeTool(toolCall, toolContext);
+
+          // Format result for adapter
+          const formattedResult = adapter.formatToolResult(toolCall.id, result);
+          toolResults.push(formattedResult);
+        } catch (toolError) {
+          console.error('Tool execution failed:', toolError);
+
+          // Format error result
+          const errorResult = adapter.formatToolResult(toolCall.id, {
+            success: false,
+            error: {
+              type: 'execution_error',
+              message: toolError.message,
+              recoverable: true,
+            },
+          });
+
+          toolResults.push(errorResult);
+        }
+      }
+
+      // Send tool results back to AI
+      // Build new request with tool results
+      // We need to include the assistant's response and the tool results in the conversation history
+      const previousMessages = originalContext.sessionContext?.previousMessages || [];
+
+      // Add the assistant's response containing tool_use blocks
+      const assistantMessage = {
+        role: 'assistant',
+        content: assistantResponse.content || [], // Raw content blocks from API (includes tool_use)
+      };
+
+      const toolResultContext = {
+        sessionContext: {
+          ...originalContext.sessionContext,
+          previousMessages: [...previousMessages, assistantMessage],
+        },
+        toolResults, // Array of formatted tool_result content blocks
+        preferences: originalContext.preferences,
+      };
+
+      // Make another request with tool results
+      // This creates the tool loop
+      const formattedRequest = adapter.formatRequest(toolResultContext, model);
+      formattedRequest.tools = adapter.getToolDefinitions();
+
+      // Send follow-up request
+      await adapter.sendRequest(
+        formattedRequest,
+        onChunk,
+        async (followUpResponse) => {
+          // Log usage for follow-up
+          if (this.databaseService && followUpResponse.usage) {
+            await this._logUsage(
+              provider,
+              model,
+              toolResultContext,
+              followUpResponse.usage
+            );
+          }
+
+          // Check if AI wants to call more tools
+          const moreToolCalls = adapter.parseToolCalls(followUpResponse);
+
+          if (moreToolCalls && moreToolCalls.length > 0) {
+            // Recursively handle more tool calls
+            await this._handleToolCalls(
+              moreToolCalls,
+              followUpResponse,
+              toolResultContext,
+              adapter,
+              toolExecutionService,
+              toolContext,
+              projectRoot,
+              model,
+              provider,
+              onChunk,
+              onComplete,
+              onError
+            );
+          } else {
+            // No more tool calls - we're done
+            if (onComplete) {
+              onComplete(followUpResponse);
+            }
+          }
+        },
+        onError
+      );
+    } catch (error) {
+      console.error('Error handling tool calls:', error);
+      if (onError) {
+        onError(error);
+      }
     }
   }
 

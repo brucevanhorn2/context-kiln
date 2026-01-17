@@ -95,6 +95,52 @@ class BaseAdapter {
   }
 
   /**
+   * Get tool definitions in provider-specific format
+   *
+   * @returns {Array<object>} Array of tool definitions
+   * @abstract
+   */
+  getToolDefinitions() {
+    throw new Error('getToolDefinitions() must be implemented by subclass');
+  }
+
+  /**
+   * Parse tool calls from API response
+   *
+   * @param {object} apiResponse - Raw API response
+   * @returns {Array<object>} Array of tool call objects
+   * @returns {string} return[].id - Tool call ID
+   * @returns {string} return[].type - Tool type (read_file, edit_file, etc.)
+   * @returns {object} return[].parameters - Tool parameters
+   * @abstract
+   */
+  parseToolCalls(_apiResponse) {
+    throw new Error('parseToolCalls() must be implemented by subclass');
+  }
+
+  /**
+   * Format tool execution result to send back to the API
+   *
+   * @param {string} toolCallId - ID of the tool call
+   * @param {object} result - Tool execution result
+   * @returns {object} Formatted tool result for API
+   * @abstract
+   */
+  formatToolResult(_toolCallId, _result) {
+    throw new Error('formatToolResult() must be implemented by subclass');
+  }
+
+  /**
+   * Check if this provider supports tool use
+   *
+   * @returns {boolean} True if tool use is supported
+   */
+  supportsToolUse() {
+    // Default: providers don't support tool use unless they override this
+    return false;
+  }
+
+  /**
    * Get provider-specific error message
    *
    * @param {Error} error - Error object from API call

@@ -48,27 +48,38 @@ class AnthropicAdapter extends BaseAdapter {
       messages.push(...internalContext.sessionContext.previousMessages);
     }
 
-    // Build current message with context
-    let content = '';
+    // Handle tool results (for tool execution loop)
+    if (internalContext.toolResults) {
+      // Tool results: assistant's response with tool_use should already be in previousMessages
+      // Now we add user message with tool_result blocks
+      messages.push({
+        role: 'user',
+        content: internalContext.toolResults,
+      });
+    } else {
+      // Normal user message
+      // Build current message with context
+      let content = '';
 
-    // Add context files if present
-    if (internalContext.contextFiles && internalContext.contextFiles.length > 0) {
-      content += this.formatContextFiles(internalContext.contextFiles, 'markdown');
-      content += '\n\n';
+      // Add context files if present
+      if (internalContext.contextFiles && internalContext.contextFiles.length > 0) {
+        content += this.formatContextFiles(internalContext.contextFiles, 'markdown');
+        content += '\n\n';
+      }
+
+      // Add session context summary if present
+      if (internalContext.sessionContext && internalContext.sessionContext.summary) {
+        content += `# Session Context\n${internalContext.sessionContext.summary}\n\n`;
+      }
+
+      // Add user's message
+      content += `# User Question\n${internalContext.userMessage}`;
+
+      messages.push({
+        role: 'user',
+        content: content,
+      });
     }
-
-    // Add session context summary if present
-    if (internalContext.sessionContext && internalContext.sessionContext.summary) {
-      content += `# Session Context\n${internalContext.sessionContext.summary}\n\n`;
-    }
-
-    // Add user's message
-    content += `# User Question\n${internalContext.userMessage}`;
-
-    messages.push({
-      role: 'user',
-      content: content,
-    });
 
     // Build API request
     const request = {
@@ -265,6 +276,229 @@ class AnthropicAdapter extends BaseAdapter {
       console.error('Anthropic API key validation failed:', error);
       return false;
     }
+  }
+
+  /**
+   * Check if this adapter supports tool use
+   */
+  supportsToolUse() {
+    return true;
+  }
+
+  /**
+   * Get tool definitions in Claude format
+   */
+  getToolDefinitions() {
+    return [
+      {
+        name: 'read_file',
+        description: 'Read the contents of a file from the project. Use this to examine code files before making changes.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path from project root (e.g., "src/utils/calculator.js")',
+            },
+            line_start: {
+              type: 'number',
+              description: 'Optional: Start reading from this line number (1-indexed)',
+            },
+            line_end: {
+              type: 'number',
+              description: 'Optional: Stop reading at this line number',
+            },
+          },
+          required: ['path'],
+        },
+      },
+      {
+        name: 'edit_file',
+        description: 'Propose changes to an existing file. This will show a diff preview to the user for approval.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path from project root',
+            },
+            old_content: {
+              type: 'string',
+              description: 'The exact content to replace (for verification)',
+            },
+            new_content: {
+              type: 'string',
+              description: 'The new content to insert',
+            },
+            description: {
+              type: 'string',
+              description: 'Human-readable description of what this change does',
+            },
+          },
+          required: ['path', 'old_content', 'new_content', 'description'],
+        },
+      },
+      {
+        name: 'create_file',
+        description: 'Create a new file in the project. This will show a preview to the user for approval.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Relative path for the new file',
+            },
+            content: {
+              type: 'string',
+              description: 'The complete content for the new file',
+            },
+            description: {
+              type: 'string',
+              description: 'Human-readable description of why this file is being created',
+            },
+          },
+          required: ['path', 'content', 'description'],
+        },
+      },
+      {
+        name: 'list_files',
+        description: 'List files in a directory. Use this to explore the project structure.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Directory path to list (defaults to project root)',
+            },
+            pattern: {
+              type: 'string',
+              description: 'Optional glob pattern to filter files (e.g., "*.js", "**/*.test.ts")',
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'Include subdirectories (default: false)',
+            },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'search_files',
+        description: 'Search for a text pattern in files within the project. Use this to find where code is defined, used, or to locate specific patterns. Returns file paths, line numbers, and matching content. Very useful for "find where X is defined" or "find all usages of Y" queries.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              description: 'The text or regex pattern to search for (e.g., "function calculateDiff" or "import.*DatabaseService")',
+            },
+            path: {
+              type: 'string',
+              description: 'Directory to search in (defaults to entire project). Use "src" to search only source files.',
+            },
+            regex: {
+              type: 'boolean',
+              description: 'Whether pattern is a regular expression (default: false)',
+            },
+            case_sensitive: {
+              type: 'boolean',
+              description: 'Case sensitive search (default: false)',
+            },
+            file_pattern: {
+              type: 'string',
+              description: 'Only search files matching this glob pattern (e.g., "*.js" or "*.{ts,tsx}")',
+            },
+          },
+          required: ['pattern'],
+        },
+      },
+      {
+        name: 'find_files',
+        description: 'Find files by name pattern using glob syntax. Use this to locate files when you know or can guess part of the filename (e.g., "find all Service files" or "find test files").',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              description: 'Glob pattern to match filenames (e.g., "*Service.js", "**/*.test.js", "*.{ts,tsx}")',
+            },
+            path: {
+              type: 'string',
+              description: 'Directory to search in (defaults to entire project)',
+            },
+            type: {
+              type: 'string',
+              enum: ['file', 'directory', 'any'],
+              description: 'Type of filesystem entry to find (default: file)',
+            },
+          },
+          required: ['pattern'],
+        },
+      },
+      {
+        name: 'find_definition',
+        description: 'Find where a symbol is defined using the code index. Use this for fast "where is X defined?" queries. This tool queries a pre-built index of code symbols (functions, classes, variables) and returns file paths and line numbers. Much faster than search_files for finding definitions (50ms vs 2000ms).',
+        input_schema: {
+          type: 'object',
+          properties: {
+            symbol_name: {
+              type: 'string',
+              description: 'The name of the symbol to find (e.g., "calculateDiff", "DatabaseService", "API_KEY")',
+            },
+          },
+          required: ['symbol_name'],
+        },
+      },
+      {
+        name: 'find_importers',
+        description: 'Find all files that import a specific symbol using the code index. Use this for "what files use X?" queries. Returns a list of files that import the symbol, along with line numbers and import types. Useful for understanding dependencies and refactoring impact.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            symbol_name: {
+              type: 'string',
+              description: 'The name of the symbol to find importers for (e.g., "DatabaseService", "calculateDiff")',
+            },
+          },
+          required: ['symbol_name'],
+        },
+      },
+    ];
+  }
+
+  /**
+   * Parse tool calls from Claude API response
+   */
+  parseToolCalls(apiResponse) {
+    const toolCalls = [];
+
+    if (!apiResponse.content) {
+      return toolCalls;
+    }
+
+    // Claude returns tool_use blocks in the content array
+    for (const block of apiResponse.content) {
+      if (block.type === 'tool_use') {
+        toolCalls.push({
+          id: block.id,
+          type: block.name,
+          parameters: block.input,
+        });
+      }
+    }
+
+    return toolCalls;
+  }
+
+  /**
+   * Format tool execution result for Claude
+   */
+  formatToolResult(toolCallId, result) {
+    return {
+      type: 'tool_result',
+      tool_use_id: toolCallId,
+      content: JSON.stringify(result, null, 2),
+    };
   }
 
   /**

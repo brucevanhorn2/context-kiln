@@ -154,12 +154,52 @@ export const OLLAMA_MODELS = {
 };
 
 /**
+ * LM Studio (Local) models
+ * No API costs - runs locally via LM Studio
+ */
+export const LMSTUDIO_MODELS = {
+  'local-model': {
+    id: 'local-model',
+    name: 'Local Model',
+    provider: 'lmstudio',
+    contextWindow: 8192,
+    pricing: {
+      inputPerMToken: 0,
+      outputPerMToken: 0,
+    },
+    description: 'Local - Any model loaded in LM Studio',
+    recommended: true,
+  },
+};
+
+/**
+ * Local (Embedded) Models - Phase E
+ * GGUF files loaded directly via node-llama-cpp
+ */
+export const LOCAL_MODELS = {
+  'no-model-loaded': {
+    id: 'no-model-loaded',
+    name: 'No Model Loaded',
+    provider: 'local',
+    contextWindow: 0,
+    pricing: {
+      inputPerMToken: 0,
+      outputPerMToken: 0,
+    },
+    description: 'Use File > Load Model to load a GGUF file',
+    recommended: false,
+  },
+};
+
+/**
  * All models combined
  */
 export const ALL_MODELS = {
   ...ANTHROPIC_MODELS,
   ...OPENAI_MODELS,
   ...OLLAMA_MODELS,
+  ...LMSTUDIO_MODELS,
+  ...LOCAL_MODELS,
 };
 
 // ============================================================================

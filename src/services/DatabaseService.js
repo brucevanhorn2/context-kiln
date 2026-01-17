@@ -450,6 +450,223 @@ class DatabaseService {
       return acc;
     }, {});
   }
+
+  // ============================================================================
+  // CODE INDEXING METHODS (Phase B.75)
+  // ============================================================================
+
+  /**
+   * Get file metadata
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} relativePath - Relative file path
+   * @returns {object|null} File metadata or null
+   */
+  getFileMetadata(projectId, relativePath) {
+    return this.db
+      .prepare('SELECT * FROM code_file_metadata WHERE project_id = ? AND file_path = ?')
+      .get(projectId, relativePath);
+  }
+
+  /**
+   * Insert or update file metadata
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} relativePath - Relative file path
+   * @param {object} metadata - File metadata
+   * @param {Date} metadata.last_modified - Last modified timestamp
+   * @param {number} metadata.file_size - File size in bytes
+   * @param {string} metadata.content_hash - SHA-256 hash of content
+   * @param {string} metadata.index_status - Status: 'pending', 'indexed', 'error'
+   * @param {string} [metadata.error_message] - Error message if status is 'error'
+   */
+  upsertFileMetadata(projectId, relativePath, metadata) {
+    this.db
+      .prepare(`
+        INSERT INTO code_file_metadata
+        (project_id, file_path, last_modified, file_size, content_hash, index_status, error_message)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(project_id, file_path)
+        DO UPDATE SET
+          last_modified = excluded.last_modified,
+          file_size = excluded.file_size,
+          content_hash = excluded.content_hash,
+          index_status = excluded.index_status,
+          error_message = excluded.error_message,
+          last_indexed = CURRENT_TIMESTAMP
+      `)
+      .run(
+        projectId,
+        relativePath,
+        metadata.last_modified,
+        metadata.file_size,
+        metadata.content_hash,
+        metadata.index_status,
+        metadata.error_message || null
+      );
+  }
+
+  /**
+   * Delete all symbols for a file
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} relativePath - Relative file path
+   */
+  deleteSymbolsForFile(projectId, relativePath) {
+    this.db
+      .prepare('DELETE FROM code_symbols WHERE project_id = ? AND file_path = ?')
+      .run(projectId, relativePath);
+  }
+
+  /**
+   * Delete all imports for a file
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} relativePath - Relative file path
+   */
+  deleteImportsForFile(projectId, relativePath) {
+    this.db
+      .prepare('DELETE FROM code_imports WHERE project_id = ? AND source_file = ?')
+      .run(projectId, relativePath);
+  }
+
+  /**
+   * Insert a symbol into the index
+   *
+   * @param {number} projectId - Project ID
+   * @param {object} symbol - Symbol data
+   * @param {string} symbol.file_path - Relative file path
+   * @param {string} symbol.symbol_name - Symbol name
+   * @param {string} symbol.symbol_type - Symbol type (function, class, variable, etc.)
+   * @param {number} symbol.line_number - Line number
+   * @param {number} [symbol.column_number] - Column number
+   * @param {boolean} [symbol.is_exported] - Whether symbol is exported
+   * @param {string} [symbol.documentation] - JSDoc or docstring
+   * @param {string} [symbol.signature] - Function signature
+   */
+  insertSymbol(projectId, symbol) {
+    this.db
+      .prepare(`
+        INSERT INTO code_symbols
+        (project_id, file_path, symbol_name, symbol_type, line_number, column_number, is_exported, documentation, signature)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        projectId,
+        symbol.file_path,
+        symbol.symbol_name,
+        symbol.symbol_type,
+        symbol.line_number,
+        symbol.column_number || 0,
+        symbol.is_exported ? 1 : 0,
+        symbol.documentation || null,
+        symbol.signature || null
+      );
+  }
+
+  /**
+   * Insert an import relationship into the index
+   *
+   * @param {number} projectId - Project ID
+   * @param {object} importData - Import data
+   * @param {string} importData.source_file - File containing the import
+   * @param {string} [importData.imported_symbol] - Imported symbol name
+   * @param {string} importData.imported_from - Module or file path
+   * @param {string} importData.import_type - Import type: 'named', 'default', 'namespace', 'dynamic'
+   * @param {number} importData.line_number - Line number
+   */
+  insertImport(projectId, importData) {
+    this.db
+      .prepare(`
+        INSERT INTO code_imports
+        (project_id, source_file, imported_symbol, imported_from, import_type, line_number)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        projectId,
+        importData.source_file,
+        importData.imported_symbol || null,
+        importData.imported_from,
+        importData.import_type,
+        importData.line_number
+      );
+  }
+
+  /**
+   * Find symbols by name
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} symbolName - Symbol name to search for
+   * @returns {Array} Array of matching symbols
+   */
+  findSymbolsByName(projectId, symbolName) {
+    return this.db
+      .prepare(`
+        SELECT * FROM code_symbols
+        WHERE project_id = ? AND symbol_name = ?
+        ORDER BY is_exported DESC, file_path
+      `)
+      .all(projectId, symbolName);
+  }
+
+  /**
+   * Find files that import a symbol
+   *
+   * @param {number} projectId - Project ID
+   * @param {string} symbolName - Symbol name to search for
+   * @returns {Array} Array of import relationships
+   */
+  findImportersBySymbol(projectId, symbolName) {
+    return this.db
+      .prepare(`
+        SELECT * FROM code_imports
+        WHERE project_id = ? AND imported_symbol = ?
+        ORDER BY source_file
+      `)
+      .all(projectId, symbolName);
+  }
+
+  /**
+   * Clear all index data for a project
+   *
+   * @param {number} projectId - Project ID
+   */
+  clearProjectIndex(projectId) {
+    this.db.prepare('DELETE FROM code_symbols WHERE project_id = ?').run(projectId);
+    this.db.prepare('DELETE FROM code_imports WHERE project_id = ?').run(projectId);
+    this.db.prepare('DELETE FROM code_file_metadata WHERE project_id = ?').run(projectId);
+  }
+
+  /**
+   * Get index statistics for a project
+   *
+   * @param {number} projectId - Project ID
+   * @returns {object} Index statistics
+   */
+  getIndexStats(projectId) {
+    const symbolCount = this.db
+      .prepare('SELECT COUNT(*) as count FROM code_symbols WHERE project_id = ?')
+      .get(projectId);
+
+    const importCount = this.db
+      .prepare('SELECT COUNT(*) as count FROM code_imports WHERE project_id = ?')
+      .get(projectId);
+
+    const fileCount = this.db
+      .prepare('SELECT COUNT(*) as count FROM code_file_metadata WHERE project_id = ?')
+      .get(projectId);
+
+    const indexedFiles = this.db
+      .prepare("SELECT COUNT(*) as count FROM code_file_metadata WHERE project_id = ? AND index_status = 'indexed'")
+      .get(projectId);
+
+    return {
+      totalSymbols: symbolCount.count,
+      totalImports: importCount.count,
+      totalFiles: fileCount.count,
+      indexedFiles: indexedFiles.count,
+    };
+  }
 }
 
 module.exports = DatabaseService;
