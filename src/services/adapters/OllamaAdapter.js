@@ -13,7 +13,8 @@ class OllamaAdapter extends BaseAdapter {
   constructor(config = {}) {
     super('ollama', config);
 
-    this.endpoint = config.endpoint || 'http://localhost:11434';
+    // Use 127.0.0.1 instead of localhost to force IPv4 (Ollama listens on IPv4 by default)
+    this.endpoint = config.endpoint || 'http://127.0.0.1:11434';
     this.apiKey = null; // Ollama doesn't require API keys
   }
 
@@ -106,17 +107,27 @@ class OllamaAdapter extends BaseAdapter {
    */
   async getAvailableModels() {
     try {
+      console.log(`[OllamaAdapter] Fetching models from ${this.endpoint}/api/tags`);
       const response = await fetch(`${this.endpoint}/api/tags`);
+
       if (!response.ok) {
+        console.error(`[OllamaAdapter] HTTP ${response.status}: ${response.statusText}`);
         throw new Error(`Failed to fetch models: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log(`[OllamaAdapter] Received data:`, data);
+
+      if (!data.models || !Array.isArray(data.models)) {
+        console.error('[OllamaAdapter] Invalid response format:', data);
+        throw new Error('Invalid response from Ollama API');
+      }
 
       // Transform Ollama model list to our format
-      return data.models.map(model => ({
+      const models = data.models.map(model => ({
         id: model.name,
         name: model.name,
+        description: `Local - ${(model.size / 1024 / 1024 / 1024).toFixed(1)} GB`,
         contextWindow: 8192, // Default, may vary by model
         pricing: {
           inputPerMToken: 0, // Local models are free
@@ -125,29 +136,13 @@ class OllamaAdapter extends BaseAdapter {
         size: model.size,
         modified: model.modified_at,
       }));
+
+      console.log(`[OllamaAdapter] Returning ${models.length} models:`, models.map(m => m.id));
+      return models;
     } catch (error) {
-      console.error('Failed to fetch Ollama models:', error);
-      // Return default list if Ollama is not running
-      return [
-        {
-          id: 'llama3.1',
-          name: 'Llama 3.1',
-          contextWindow: 8192,
-          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
-        },
-        {
-          id: 'codellama',
-          name: 'Code Llama',
-          contextWindow: 16384,
-          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
-        },
-        {
-          id: 'qwen2.5-coder',
-          name: 'Qwen 2.5 Coder',
-          contextWindow: 32768,
-          pricing: { inputPerMToken: 0, outputPerMToken: 0 },
-        },
-      ];
+      console.error('[OllamaAdapter] Failed to fetch Ollama models:', error);
+      // Re-throw so UI can show error instead of silently using fallback
+      throw error;
     }
   }
 
@@ -288,8 +283,8 @@ class OllamaAdapter extends BaseAdapter {
    * Get user-friendly error message
    */
   getErrorMessage(error) {
-    if (error.code === 'ECONNREFUSED' || error.message.includes('fetch failed')) {
-      return 'Cannot connect to Ollama. Make sure Ollama is running (ollama serve) on localhost:11434';
+    if (error.code === 'ECONNREFUSED' || error.message.includes('fetch failed') || error.message.includes('ECONNREFUSED')) {
+      return 'Cannot connect to Ollama. Make sure Ollama is running: ollama serve';
     }
 
     if (error.message.includes('model') && error.message.includes('not found')) {

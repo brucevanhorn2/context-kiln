@@ -115,6 +115,18 @@ export const OPENAI_MODELS = {
  * No API costs - runs locally
  */
 export const OLLAMA_MODELS = {
+  'qwen2.5-coder:7b': {
+    id: 'qwen2.5-coder:7b',
+    name: 'Qwen 2.5 Coder 7B',
+    provider: 'ollama',
+    contextWindow: 32768,
+    pricing: {
+      inputPerMToken: 0,
+      outputPerMToken: 0,
+    },
+    description: 'Local - Specialized for coding (32K context)',
+    recommended: true,
+  },
   'llama3.1': {
     id: 'llama3.1',
     name: 'Llama 3.1',
@@ -125,7 +137,7 @@ export const OLLAMA_MODELS = {
       outputPerMToken: 0,
     },
     description: 'Local - Meta Llama 3.1',
-    recommended: true,
+    recommended: false,
   },
   'codellama': {
     id: 'codellama',
@@ -238,8 +250,8 @@ export const TOKEN_LIMITS = {
  */
 export const DEFAULT_SETTINGS = {
   // AI Provider
-  activeProvider: 'anthropic',
-  defaultModel: 'claude-3-5-sonnet-20241022',
+  activeProvider: 'ollama',
+  defaultModel: 'qwen2.5-coder:7b',
 
   // Token Management
   maxContextTokens: TOKEN_LIMITS.MAX_CONTEXT_TOKENS,

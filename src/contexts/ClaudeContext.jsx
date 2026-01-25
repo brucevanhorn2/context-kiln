@@ -45,8 +45,8 @@ export const ClaudeProvider = ({ children }) => {
   // State
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [currentProvider, setCurrentProvider] = useState('anthropic');
-  const [currentModel, setCurrentModel] = useState('claude-3-5-sonnet-20241022');
+  const [currentProvider, setCurrentProvider] = useState('ollama');
+  const [currentModel, setCurrentModel] = useState('qwen2.5-coder:7b');
   const [error, setError] = useState(null);
   const [contextFiles, setContextFiles] = useState([]);
   const [availableProviders, setAvailableProviders] = useState([]);
@@ -83,12 +83,30 @@ export const ClaudeProvider = ({ children }) => {
         const models = await window.electron.getAIModels(currentProvider);
         setAvailableModels(models);
       } catch (err) {
-        console.error('Failed to load models:', err);
+        console.error('[ClaudeContext] Failed to load models:', err);
         setAvailableModels([]);
       }
     };
 
     loadModels();
+  }, [currentProvider]);
+
+  /**
+   * Manually reload models for current provider
+   * Useful for refreshing Ollama models after pulling new ones
+   */
+  const reloadModels = useCallback(async () => {
+    if (!currentProvider) return;
+
+    try {
+      const models = await window.electron.getAIModels(currentProvider);
+      setAvailableModels(models);
+      return models;
+    } catch (err) {
+      console.error('[ClaudeContext] Failed to reload models:', err);
+      setAvailableModels([]);
+      throw err;
+    }
   }, [currentProvider]);
 
   /**
@@ -340,6 +358,13 @@ export const ClaudeProvider = ({ children }) => {
   );
 
   // Context value
+  /**
+   * Clear error state
+   */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   const value = {
     // State
     messages,
@@ -355,6 +380,7 @@ export const ClaudeProvider = ({ children }) => {
     sendMessage,
     stopStreaming,
     clearMessages,
+    clearError,
     addContextFile,
     removeContextFile,
     clearContextFiles,
@@ -362,6 +388,7 @@ export const ClaudeProvider = ({ children }) => {
     switchModel,
     regenerateResponse,
     validateApiKey,
+    reloadModels,
   };
 
   return (

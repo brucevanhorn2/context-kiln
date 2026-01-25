@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   Tabs,
@@ -10,8 +10,9 @@ import {
   Space,
   Typography,
   Divider,
+  Alert,
 } from 'antd';
-import { KeyOutlined, SettingOutlined, RobotOutlined } from '@ant-design/icons';
+import { KeyOutlined, SettingOutlined, RobotOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSettings } from '../contexts/SettingsContext';
 import { useClaude } from '../contexts/ClaudeContext';
 import { ANTHROPIC_MODELS, OPENAI_MODELS, OLLAMA_MODELS, LMSTUDIO_MODELS, LOCAL_MODELS } from '../utils/constants';
@@ -38,11 +39,31 @@ function SettingsModal({ visible, onClose }) {
     switchProvider,
     switchModel,
     validateApiKey,
+    reloadModels,
   } = useClaude();
 
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [testingApiKey, setTestingApiKey] = useState(false);
   const [activeTab, setActiveTab] = useState('provider');
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState(null);
+  const [localModels, setLocalModels] = useState([]);
+
+  // Sync localModels with availableModels from context
+  useEffect(() => {
+    if (availableModels && availableModels.length > 0) {
+      setLocalModels(availableModels);
+    }
+  }, [availableModels]);
+
+  /**
+   * Load models when modal opens (for any provider that needs dynamic loading)
+   */
+  useEffect(() => {
+    if (visible) {
+      handleReloadModels();
+    }
+  }, [visible, settings.activeProvider, handleReloadModels]);
 
   /**
    * Test API key
@@ -87,6 +108,38 @@ function SettingsModal({ visible, onClose }) {
       message.error(`Failed to save API key: ${err.message}`);
     }
   };
+
+  /**
+   * Reload models for current provider
+   * Fetches directly via IPC to avoid context timing issues
+   */
+  const handleReloadModels = useCallback(async () => {
+    setLoadingModels(true);
+    setModelError(null);
+    try {
+      const provider = settings.activeProvider;
+      const models = await window.electron.getAIModels(provider);
+      setLocalModels(models);
+
+      // If current model doesn't exist in loaded models, select the first one
+      if (models.length > 0) {
+        const currentModelExists = models.some(m => m.id === settings.defaultModel);
+        if (!currentModelExists) {
+          const firstModel = models[0].id;
+          await setSetting('defaultModel', firstModel);
+          switchModel(firstModel);
+        }
+      }
+
+      message.success(`Loaded ${models.length} models from ${provider}`);
+    } catch (err) {
+      console.error('[Settings] Failed to load models:', err);
+      setModelError(err.message || 'Failed to load models');
+      message.error(`Failed to load models: ${err.message}`);
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [settings.activeProvider, settings.defaultModel, setSetting, switchModel]);
 
   /**
    * Handle provider change
@@ -192,36 +245,81 @@ function SettingsModal({ visible, onClose }) {
 
             {/* Model Selection */}
             <div>
-              <Title level={5}>Select Model</Title>
-              <Select
-                value={settings.defaultModel}
-                onChange={handleModelChange}
-                style={{ width: '100%' }}
-              >
-                {getModelsForProvider(settings.activeProvider).map((model) => (
-                  <Select.Option key={model.id} value={model.id}>
-                    <div>
-                      <div>
-                        {model.name}
-                        {model.recommended && (
-                          <span
-                            style={{
-                              marginLeft: '8px',
-                              fontSize: '11px',
-                              color: '#52c41a',
-                            }}
-                          >
-                            (Recommended)
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#888' }}>
-                        {model.description} • Context: {model.contextWindow.toLocaleString()} tokens
-                      </div>
-                    </div>
-                  </Select.Option>
-                ))}
-              </Select>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div>
+                  <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <Title level={5} style={{ margin: 0 }}>Available Models</Title>
+                    {settings.activeProvider === 'ollama' && (
+                      <Button
+                        size="small"
+                        icon={<ReloadOutlined />}
+                        onClick={handleReloadModels}
+                        loading={loadingModels}
+                        type="text"
+                      >
+                        Refresh
+                      </Button>
+                    )}
+                  </Space>
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                    {settings.activeProvider === 'ollama'
+                      ? `Models from local Ollama (${localModels.length} loaded):`
+                      : 'Select a model:'}
+                  </Text>
+
+                  {modelError && (
+                    <Alert
+                      type="error"
+                      message="Failed to load models"
+                      description={modelError}
+                      showIcon
+                      closable
+                      onClose={() => setModelError(null)}
+                      style={{ marginBottom: '12px' }}
+                    />
+                  )}
+                </div>
+
+                <Select
+                  value={settings.defaultModel}
+                  onChange={handleModelChange}
+                  style={{ width: '100%' }}
+                  placeholder={localModels.length === 0 ? 'No models loaded' : 'Select a model...'}
+                >
+                  {(() => {
+                    // For Ollama, use localModels (fetched dynamically)
+                    // For other providers, use hardcoded constants as fallback
+                    const modelsToShow = settings.activeProvider === 'ollama'
+                      ? localModels
+                      : (localModels.length > 0 ? localModels : getModelsForProvider(settings.activeProvider));
+
+                    return modelsToShow.map((model) => (
+                      <Select.Option key={model.id} value={model.id}>
+                        <div>
+                          <div>
+                            {model.name}
+                            {model.recommended && (
+                              <span
+                                style={{
+                                  marginLeft: '8px',
+                                  fontSize: '11px',
+                                  color: '#52c41a',
+                                }}
+                              >
+                                (Recommended)
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#888' }}>
+                            {model.description || model.id}
+                            {model.contextWindow && ` • Context: ${model.contextWindow.toLocaleString()} tokens`}
+                          </div>
+                        </div>
+                      </Select.Option>
+                    ));
+                  })()}
+                </Select>
+              </Space>
             </div>
 
             <Divider />

@@ -299,6 +299,11 @@ const initializeServices = () => {
     aiProviderService.setLocalModelService(localModelService);
     logService.info('Main', 'LocalModelAdapter registered');
 
+    // Set Ollama as default provider (for local development)
+    // This connects to http://localhost:11434 by default
+    aiProviderService.setActiveProvider('ollama');
+    logService.info('Main', 'Ollama set as active provider');
+
     logService.info('Main', 'All services initialized successfully');
   } catch (error) {
     logService.error('Main', 'Failed to initialize services', error.message);
@@ -390,8 +395,12 @@ const setupIPC = () => {
    */
   ipcMain.handle('ai-provider:get-models', async (event, provider) => {
     try {
-      return aiProviderService.getAvailableModels(provider);
+      logService.info('Main', `Getting models for provider: ${provider}`);
+      const models = await aiProviderService.getAvailableModels(provider);
+      logService.info('Main', `Fetched ${models.length} models for ${provider}`);
+      return models;
     } catch (error) {
+      logService.error('Main', 'Failed to get models', { provider, error: error.message });
       console.error('Failed to get models:', error);
       throw error;
     }

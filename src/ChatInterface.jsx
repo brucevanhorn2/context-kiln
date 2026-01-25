@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Space, Alert, Spin } from 'antd';
-import { SendOutlined, StopOutlined, RobotOutlined } from '@ant-design/icons';
+import { Button, Input, Space, Spin } from 'antd';
+import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined } from '@ant-design/icons';
 import { useClaude } from './contexts/ClaudeContext';
 import DiffPreviewModal from './components/DiffPreviewModal';
 
@@ -14,6 +14,7 @@ function ChatInterface() {
     sendMessage,
     stopStreaming,
     clearMessages,
+    clearError,
   } = useClaude();
 
   const [inputValue, setInputValue] = useState('');
@@ -74,15 +75,57 @@ function ChatInterface() {
         )}
       </div>
 
-      {/* Error Alert */}
+      {/* Error Message - styled like a chat message */}
       {error && (
-        <Alert
-          message="Error"
-          description={error}
-          type="error"
-          closable
-          style={{ marginBottom: '12px' }}
-        />
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            marginBottom: '12px',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '85%',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#4a2c2c',
+              border: '1px solid #6b3a3a',
+              color: '#e8b4b4',
+              fontSize: '13px',
+              lineHeight: '1.5',
+              position: 'relative',
+            }}
+          >
+            <button
+              onClick={clearError}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: '#8b5a5a',
+                cursor: 'pointer',
+                padding: '4px',
+                lineHeight: 1,
+                fontSize: '14px',
+              }}
+              title="Dismiss"
+            >
+              <CloseOutlined />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', paddingRight: '20px' }}>
+              <WarningOutlined style={{ color: '#cf6679' }} />
+              <span style={{ fontWeight: 500, color: '#cf6679' }}>Connection Error</span>
+            </div>
+            <div style={{ color: '#d4a5a5' }}>
+              {error.includes('Not Found') || error.includes('ECONNREFUSED')
+                ? `Unable to reach the ${currentProvider} backend. Please ensure the service is running.`
+                : error}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Messages Area */}
