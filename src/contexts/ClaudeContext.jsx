@@ -46,7 +46,7 @@ export const ClaudeProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentProvider, setCurrentProvider] = useState('ollama');
-  const [currentModel, setCurrentModel] = useState('qwen2.5-coder:7b');
+  const [currentModel, setCurrentModel] = useState('qwen2.5-coder:7B');
   const [error, setError] = useState(null);
   const [contextFiles, setContextFiles] = useState([]);
   const [availableProviders, setAvailableProviders] = useState([]);
@@ -113,7 +113,12 @@ export const ClaudeProvider = ({ children }) => {
    * Handle streaming chunks from AI
    */
   useEffect(() => {
+    // Track if this effect instance is still active
+    let isActive = true;
+
     const handleChunk = (event, chunk) => {
+      // Guard against stale listeners
+      if (!isActive) return;
       if (!streamingMessageIdRef.current) return;
 
       if (chunk.type === 'chunk' && chunk.content) {
@@ -163,6 +168,7 @@ export const ClaudeProvider = ({ children }) => {
 
     // Cleanup
     return () => {
+      isActive = false;
       window.electron.offAIChunk(handleChunk);
     };
   }, []);

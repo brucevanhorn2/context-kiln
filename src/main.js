@@ -16,6 +16,7 @@ const logService = require('./services/LogService');
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
+let openFolderPath = null; // Track the currently open folder
 
 // Service instances (initialized after app ready)
 let aiProviderService;
@@ -70,6 +71,7 @@ const createMenu = () => {
 
             if (!result.canceled && result.filePaths.length > 0) {
               const folderPath = result.filePaths[0];
+              openFolderPath = folderPath; // Track at module level
               const treeData = scanDirectory(folderPath);
               mainWindow.webContents.send('folder-opened', {
                 path: folderPath,
@@ -521,6 +523,42 @@ const setupIPC = () => {
       return await fileService.getFileMetadata(filePath);
     } catch (error) {
       console.error('Failed to get file metadata:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Create a new file
+   */
+  ipcMain.handle('file:create-file', async (event, filePath, content = '') => {
+    try {
+      await fileService.writeFile(filePath, content, { createDir: true });
+      // Refresh and broadcast updated tree
+      if (openFolderPath) {
+        const treeData = scanDirectory(openFolderPath);
+        mainWindow.webContents.send('folder-opened', { path: openFolderPath, data: treeData });
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Create a new directory
+   */
+  ipcMain.handle('file:create-directory', async (event, dirPath) => {
+    try {
+      await fileService.createDirectory(dirPath, true);
+      // Refresh and broadcast updated tree
+      if (openFolderPath) {
+        const treeData = scanDirectory(openFolderPath);
+        mainWindow.webContents.send('folder-opened', { path: openFolderPath, data: treeData });
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to create directory:', error);
       throw error;
     }
   });

@@ -20,9 +20,8 @@ contextBridge.exposeInMainWorld('electron', {
   sendAIMessage: (data) => ipcRenderer.invoke('ai-provider:send-message', data),
 
   onAIChunk: (callback) => {
-    ipcRenderer.on('ai-provider:chunk', (event, chunk) => {
-      callback(event, chunk);
-    });
+    // Store the callback directly so it can be removed later
+    ipcRenderer.on('ai-provider:chunk', callback);
   },
 
   offAIChunk: (callback) => {
@@ -65,6 +64,12 @@ contextBridge.exposeInMainWorld('electron', {
 
   getFileMetadata: (filePath) =>
     ipcRenderer.invoke('file:get-metadata', filePath),
+
+  createFile: (filePath, content = '') =>
+    ipcRenderer.invoke('file:create-file', filePath, content),
+
+  createDirectory: (dirPath) =>
+    ipcRenderer.invoke('file:create-directory', dirPath),
 
   // ============================================================================
   // DATABASE

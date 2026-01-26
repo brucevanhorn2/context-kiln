@@ -480,7 +480,7 @@ class AIProviderService {
       const sessionId = internalContext.sessionContext?.sessionId || null;
 
       // Get API key ID (we don't want to store the actual key)
-      const apiKeyId = await this.settingsService.getActiveApiKeyId(provider);
+      const apiKeyId = this.settingsService ? await this.settingsService.getActiveApiKeyId(provider) : null;
 
       // Calculate cost
       const models = this.getAvailableModels(provider);

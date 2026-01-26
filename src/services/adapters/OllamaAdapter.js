@@ -27,7 +27,12 @@ class OllamaAdapter extends BaseAdapter {
 
     // Add previous messages from session context if they exist
     if (internalContext.sessionContext && internalContext.sessionContext.previousMessages) {
-      messages.push(...internalContext.sessionContext.previousMessages);
+      // Extract only role and content for Ollama API
+      const cleanedMessages = internalContext.sessionContext.previousMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+      messages.push(...cleanedMessages);
     }
 
     // Build current message with context

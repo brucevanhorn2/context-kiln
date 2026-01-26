@@ -78,18 +78,38 @@
   color: #d4d4d4;
 }
 
+.ant-tabs-nav {
+  margin-bottom: 0 !important;
+}
+
 .ant-tabs-tab {
   color: #999999 !important;
   border-color: #333 !important;
+  background: #2d2d2d !important;
+  padding: 4px 12px !important;
+}
+
+.ant-tabs-tab:hover {
+  color: #d4d4d4 !important;
 }
 
 .ant-tabs-tab-active {
   color: #d4d4d4 !important;
-  border-color: #0e639c !important;
+  background: #1e1e1e !important;
+  border-bottom-color: #1e1e1e !important;
 }
 
 .ant-tabs-ink-bar {
   background: #0e639c !important;
+}
+
+/* CRITICAL: Make tab content areas fill available height */
+.ant-tabs-content {
+  height: 100%;
+}
+
+.ant-tabs-tabpane {
+  height: 100%;
 }
 
 /* Tag styling */

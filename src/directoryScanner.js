@@ -86,7 +86,7 @@ function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0) {
 
         if (entry.isDirectory()) {
           node.children = scanDirectory(fullPath, maxDepth, currentDepth + 1);
-          node.children = node.children.length > 0 ? node.children : undefined;
+          // Keep empty array for empty directories so they display correctly
         } else {
           node.icon = getFileIcon(entry.name);
         }
@@ -95,8 +95,10 @@ function scanDirectory(dirPath, maxDepth = 10, currentDepth = 0) {
       })
       .sort((a, b) => {
         // Directories first, then files, both alphabetically
-        if ((a.children !== undefined) !== (b.children !== undefined)) {
-          return (b.children !== undefined) - (a.children !== undefined);
+        const aIsDir = a.isFile === false;
+        const bIsDir = b.isFile === false;
+        if (aIsDir !== bIsDir) {
+          return bIsDir - aIsDir;
         }
         return a.title.localeCompare(b.title);
       });

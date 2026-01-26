@@ -14,45 +14,52 @@ import { SessionProvider } from './contexts/SessionContext';
 import { EditorProvider, useEditor } from './contexts/EditorContext';
 import { UsageTrackingProvider } from './contexts/UsageTrackingContext';
 import { ToolProvider } from './contexts/ToolContext';
-import { ClaudeProvider } from './contexts/ClaudeContext';
+import { ClaudeProvider, useClaude } from './contexts/ClaudeContext';
 
 const { Header, Content } = AntLayout;
 
-// Inner component that can use EditorContext
+// Inner component that can use EditorContext and ClaudeContext
 function LayoutInner() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [treeData, setTreeData] = useState(null);
   const [openFolderPath, setOpenFolderPath] = useState(null);
-  const [contextFiles, setContextFiles] = useState([]);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
 
   // Access EditorContext
   const { openFile } = useEditor();
 
-  const handleAddContextFile = (filePath, isDirectory) => {
+  // Access ClaudeContext for context files (so they're actually sent to the AI)
+  const { contextFiles, addContextFile, removeContextFile, clearContextFiles } = useClaude();
+
+  const handleAddContextFile = async (filePath, isDirectory) => {
     // Calculate relative path from the opened folder
     const relativePath = filePath.replace(openFolderPath + '\\', '').replace(openFolderPath + '/', '');
 
-    // Check if file already exists
-    const exists = contextFiles.some(f => f.path === filePath);
-    if (exists) return;
+    // Read file content if it's not a directory
+    let content = '';
+    if (!isDirectory && window.electron) {
+      try {
+        content = await window.electron.readFile(filePath);
+      } catch (err) {
+        console.error('Failed to read file:', err);
+      }
+    }
 
-    setContextFiles([
-      ...contextFiles,
-      {
-        id: filePath,
-        path: filePath,
-        relativePath,
-        isDirectory,
-        filename: relativePath.split(/[\/\\]/).pop(),
-      },
-    ]);
+    // Add to ClaudeContext (which handles deduplication)
+    addContextFile({
+      id: filePath,
+      path: filePath,
+      relativePath,
+      isDirectory,
+      filename: relativePath.split(/[\/\\]/).pop(),
+      content, // Include the actual file content!
+    });
   };
 
   const handleRemoveContextFile = (fileId) => {
-    setContextFiles(contextFiles.filter(f => f.id !== fileId));
+    removeContextFile(fileId);
   };
 
   useEffect(() => {
@@ -62,7 +69,7 @@ function LayoutInner() {
         setTreeData(data.data);
         setOpenFolderPath(data.path);
         // Clear context files when a new folder is opened
-        setContextFiles([]);
+        clearContextFiles();
 
         // Get or create project in database
         try {

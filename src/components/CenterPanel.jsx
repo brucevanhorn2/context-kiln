@@ -64,23 +64,22 @@ function CenterPanel() {
       style={{ height: '100%', width: '100%' }}
     >
       {/* Chat pane (top) */}
-      <Splitter.Panel
-        defaultSize={hasOpenFiles ? '50%' : '100%'}
+      <Splitter.Pane
+        defaultSize="50%"
         min="20%"
         max="80%"
         style={{ overflow: 'hidden' }}
       >
         <ChatInterface />
-      </Splitter.Panel>
+      </Splitter.Pane>
 
-      {/* Editor pane (bottom) - only show if files are open */}
-      {hasOpenFiles && (
-        <Splitter.Panel
-          defaultSize="50%"
-          min="20%"
-          max="80%"
-          style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-        >
+      {/* Editor pane (bottom) - always rendered, shows empty state when no files */}
+      <Splitter.Pane
+        defaultSize="50%"
+        min="100px"
+        style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      >
+        {hasOpenFiles ? (
           <Tabs
             type="editable-card"
             activeKey={activeFilePath}
@@ -104,8 +103,22 @@ function CenterPanel() {
               flexShrink: 0,
             }}
           />
-        </Splitter.Panel>
-      )}
+        ) : (
+          <div
+            style={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#666',
+              fontSize: '13px',
+              background: '#1e1e1e',
+            }}
+          >
+            Double-click a file to open it in the editor
+          </div>
+        )}
+      </Splitter.Pane>
     </Splitter>
   );
 }
