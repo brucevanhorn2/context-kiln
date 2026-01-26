@@ -231,13 +231,8 @@ class AIProviderService {
       // Check if adapter supports tool use
       const supportsTools = adapter.supportsToolUse && adapter.supportsToolUse();
 
-      // Format request using adapter
+      // Format request using adapter (this will include tools if supported)
       const formattedRequest = adapter.formatRequest(internalContext, model);
-
-      // Add tool definitions if supported
-      if (supportsTools && toolExecutionService) {
-        formattedRequest.tools = adapter.getToolDefinitions();
-      }
 
       // Send request
       const response = await adapter.sendRequest(

@@ -99,6 +99,14 @@ class AnthropicAdapter extends BaseAdapter {
       }
     }
 
+    // Add tool definitions if tool use is supported and enabled
+    if (this.supportsToolUse() && internalContext.enableTools !== false) {
+      request.tools = this.getToolDefinitions();
+
+      // Add system prompt explaining tool capabilities
+      request.system = this._getSystemPromptWithTools();
+    }
+
     return request;
   }
 
@@ -155,37 +163,65 @@ class AnthropicAdapter extends BaseAdapter {
       {
         id: 'claude-opus-4-5-20251101',
         name: 'Claude Opus 4.5',
+        description: '🔧 Tool Support • Most capable',
         contextWindow: 200000,
         pricing: {
           inputPerMToken: 15.00,
           outputPerMToken: 75.00,
         },
+        supportsTools: true,
+        capabilities: {
+          tools: true,
+          vision: true,
+          streaming: true,
+        },
       },
       {
         id: 'claude-3-7-sonnet-20250219',
         name: 'Claude Sonnet 3.7',
+        description: '🔧 Tool Support • Best balance',
         contextWindow: 200000,
         pricing: {
           inputPerMToken: 3.00,
           outputPerMToken: 15.00,
+        },
+        supportsTools: true,
+        capabilities: {
+          tools: true,
+          vision: true,
+          streaming: true,
         },
       },
       {
         id: 'claude-3-5-sonnet-20241022',
         name: 'Claude Sonnet 3.5',
+        description: '🔧 Tool Support • Fast',
         contextWindow: 200000,
         pricing: {
           inputPerMToken: 3.00,
           outputPerMToken: 15.00,
         },
+        supportsTools: true,
+        capabilities: {
+          tools: true,
+          vision: true,
+          streaming: true,
+        },
       },
       {
         id: 'claude-3-5-haiku-20241022',
         name: 'Claude Haiku 3.5',
+        description: '🔧 Tool Support • Fastest',
         contextWindow: 200000,
         pricing: {
           inputPerMToken: 0.80,
           outputPerMToken: 4.00,
+        },
+        supportsTools: true,
+        capabilities: {
+          tools: true,
+          vision: false,
+          streaming: true,
         },
       },
     ];
@@ -464,6 +500,56 @@ class AnthropicAdapter extends BaseAdapter {
         },
       },
     ];
+  }
+
+  /**
+   * Get system prompt with tool usage instructions
+   * @private
+   */
+  _getSystemPromptWithTools() {
+    return `You are an AI coding assistant integrated into Context Kiln, a powerful IDE for AI-assisted software development.
+
+You have access to the following tools for exploring and modifying the project:
+
+**Read-Only Tools** (auto-approved):
+- read_file: Read file contents with line numbers
+- list_files: List files and directories
+- search_files: Search for text patterns using regex
+- find_files: Find files by name pattern
+- find_definition: Look up where symbols are defined (fast, indexed)
+- find_importers: Find files that import a module (dependency analysis)
+
+**Write Tools** (require user approval):
+- edit_file: Propose changes to existing files (shows diff preview)
+- create_file: Create new files (shows preview)
+
+## Best Practices for Tool Use
+
+**When exploring a codebase:**
+1. Use find_definition for "where is X defined?" queries - it's fast (50ms) and accurate
+2. Use search_files to find usage patterns and understand how code is used
+3. Use list_files to understand project structure
+4. Always read files before proposing edits to understand current implementation
+
+**When making changes:**
+1. ALWAYS read the file first using read_file
+2. For edit_file, provide the old_content (exact text to replace) and new_content
+3. Include a clear description explaining what changed and why
+4. The user will see a diff preview and must approve before changes apply
+5. If the user rejects, ask what they'd like changed
+
+**Multi-step tasks:**
+1. Break complex tasks into steps (explore → understand → plan → implement)
+2. Use find_importers before refactoring to understand impact
+3. Search for related patterns before making architectural changes
+
+**Context efficiency:**
+1. Tool results consume context - be strategic
+2. Use line_start/line_end parameters when reading large files
+3. Use path parameter in search/find to narrow scope
+4. Summarize findings when tool results are large
+
+Remember: Users trust you to explore their codebase autonomously. Be thorough but efficient. Always explain what you're doing and why.`;
   }
 
   /**

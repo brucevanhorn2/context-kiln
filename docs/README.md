@@ -1,317 +1,237 @@
 # Context Kiln Documentation
 
-**Last Updated**: 2026-01-15
+**Last Updated**: 2026-01-26
 **Status**: Active Development
 
-This directory contains all documentation for Context Kiln, an agentic AI-powered coding IDE.
+---
+
+## 📚 Quick Navigation
+
+### Current Status
+- **[STATUS.md](STATUS.md)** - Where we are right now (living document)
+- **[ROADMAP.md](ROADMAP.md)** - Vision and next milestones
+- **[sessions/2026-01-26.md](sessions/2026-01-26.md)** - Today's work
+
+### For Users
+- **[guides/QUICK-START.md](guides/QUICK-START.md)** - Get started quickly
+- **[guides/TESTING-LOCAL-LLM.md](guides/TESTING-LOCAL-LLM.md)** - Ollama setup
+
+### For Developers
+- **[features/](features/)** - Feature specifications
+- **[decisions/](decisions/)** - Architecture Decision Records (ADRs)
 
 ---
 
-## Quick Start
-
-**New to Context Kiln?** Start here:
-1. 📖 [QUICK-START.md](QUICK-START.md) - User guide for getting started
-2. 📋 [MVP-Plan-v2.md](MVP-Plan-v2.md) - Overall project vision and roadmap
-3. 📊 [Implementation-Status.md](Implementation-Status.md) - Current progress and status
-
-**Developer?** Start here:
-1. 🎯 [ACTION-ITEMS.md](ACTION-ITEMS.md) - What to work on next
-2. 🌙 [TONIGHT-SUMMARY.md](TONIGHT-SUMMARY.md) - Today's session summary
-3. 🏗️ [CODE-INDEXING-DESIGN.md](CODE-INDEXING-DESIGN.md) - Current implementation focus
-
----
-
-## Documentation Categories
-
-### 📋 Planning & Vision
-
-| Document | Purpose | Status |
-|----------|---------|--------|
-| [MVP-Plan-v2.md](MVP-Plan-v2.md) | Revised MVP with local-first strategy | Current |
-| [MVP-Plan.md](MVP-Plan.md) | Original MVP plan (v1.2) | Archived |
-| [STRATEGIC-VISION.md](STRATEGIC-VISION.md) | Strategic positioning and epiphanies | ⭐ Key Doc |
-| [ROADMAP.md](ROADMAP.md) | Long-term feature roadmap | Active |
-
-**Key Insights**:
-- Leapfrog LM Studio, don't just integrate
-- Solve the "subscription vs API" problem
-- Frontier models for production, local for experimentation
-
----
-
-### 🏗️ Architecture & Design
-
-| Document | Purpose | Status |
-|----------|---------|--------|
-| [CODE-INDEXING-DESIGN.md](CODE-INDEXING-DESIGN.md) | Code search and indexing system | 🔥 Current Focus |
-| [TOOL-USE-DESIGN.md](TOOL-USE-DESIGN.md) | Phase B tool use system design | Complete |
-| [FEATURE_INTEGRATION.md](FEATURE_INTEGRATION.md) | x-copilot-proxy integration design | Reference |
-| [decisions/001-adapter-pattern.md](decisions/001-adapter-pattern.md) | ADR: Why adapter pattern | Complete |
-
-**Current Focus**: Code indexing (Phase B.5 and B.75) for search capabilities
-
----
-
-### 📊 Status & Progress
-
-| Document | Purpose | Status |
-|----------|---------|--------|
-| [Implementation-Status.md](Implementation-Status.md) | Overall progress tracker | Updated Daily |
-| [ACTION-ITEMS.md](ACTION-ITEMS.md) | Prioritized task list | Updated Daily |
-| [TONIGHT-SUMMARY.md](TONIGHT-SUMMARY.md) | Session-specific summary | Session-specific |
-
-**Progress**: Phase A & B complete (local LLMs + tool use), Phase B.5/B.75/C next
-
----
-
-### 🧪 Testing & Setup
-
-| Document | Purpose | Status |
-|----------|---------|--------|
-| [QUICK-START.md](QUICK-START.md) | User-friendly setup guide | Complete |
-| [TESTING-LOCAL-LLM.md](TESTING-LOCAL-LLM.md) | Ollama/LM Studio testing guide | Complete |
-| [TESTING_PLAN.md](TESTING_PLAN.md) | Comprehensive testing strategy | Draft |
-
----
-
-### 📝 Session Notes
-
-| Document | Purpose | Date |
-|----------|---------|------|
-| [dev-notes/2026-01-14-evening-local-llm-pivot.md](dev-notes/2026-01-14-evening-local-llm-pivot.md) | Phase A implementation | 2026-01-14 |
-| [dev-notes/2026-01-13-phase1-progress.md](dev-notes/2026-01-13-phase1-progress.md) | Initial infrastructure | 2026-01-13 |
-
----
-
-### 🎯 Feature Specs
-
-| Document | Purpose | Status |
-|----------|---------|--------|
-| [features/token-budgeting.md](features/token-budgeting.md) | Token budget system (v2.0) | Deferred |
-
----
-
-## Development Phases
-
-### ✅ Complete
-
-| Phase | Description | Lines of Code | Duration |
-|-------|-------------|---------------|----------|
-| **1-5** | Infrastructure (services, adapters, UI, tracking) | ~5,168 | 3 weeks |
-| **Phase A** | Local LLM integration (Ollama, LM Studio) | ~661 | 2 hours |
-| **Phase B** | Tool use (read, edit, create, list files) | ~1,700 | 3 hours |
-
-**Total Complete**: ~7,529 lines of production code
-
----
-
-### 🔥 Current Focus
-
-| Phase | Description | Effort | Priority |
-|-------|-------------|--------|----------|
-| **Phase B.5** | Search tools (search_files, find_files) | 2-3 hours | CRITICAL |
-| **Phase B.75** | Lightweight code index (symbols, imports) | 3-4 hours | HIGH |
-
-**Why Critical**: Without search, AI is blind - has to guess which files to read, wasting tokens and getting wrong answers 30% of the time.
-
----
-
-### ⏳ Planned
-
-| Phase | Description | Effort | Priority |
-|-------|-------------|--------|----------|
-| **Phase C** | Multi-step workflows, planning, error recovery | 5-7 hours | HIGH |
-| **Phase D** | Subscription adapters (Copilot, Claude Code) | 8-10 hours | HIGH |
-| **Phase E** | Embedded model hosting (node-llama-cpp) | 5-7 hours | MEDIUM |
-| **Phase D.5** | Full LSP integration (TypeScript, Python, Go) | 8-10 hours | MEDIUM |
-
----
-
-## Key Architectural Decisions
-
-### 1. Adapter Pattern (Phase 1)
-**Decision**: Use adapter pattern for AI providers
-**Why**: Enables adding new providers (Anthropic, OpenAI, Ollama, LM Studio) without refactoring
-**Doc**: [decisions/001-adapter-pattern.md](decisions/001-adapter-pattern.md)
-
-### 2. Local-First Strategy (Phase A)
-**Decision**: Prioritize local LLMs before cloud APIs
-**Why**: Zero-cost testing, faster iteration, privacy
-**Doc**: [dev-notes/2026-01-14-evening-local-llm-pivot.md](dev-notes/2026-01-14-evening-local-llm-pivot.md)
-
-### 3. Tool Use System (Phase B)
-**Decision**: Human-in-the-loop for all write operations
-**Why**: Safety, user control, transparency
-**Doc**: [TOOL-USE-DESIGN.md](TOOL-USE-DESIGN.md)
-
-### 4. Three-Tier Indexing (Phase B.5/B.75/D.5)
-**Decision**: Build indexing in phases (grep → lightweight index → full LSP)
-**Why**: Deliver value incrementally, validate approach
-**Doc**: [CODE-INDEXING-DESIGN.md](CODE-INDEXING-DESIGN.md)
-
-### 5. Subscription Adapters (Phase D)
-**Decision**: Support Copilot/Claude Code subscriptions, not just APIs
-**Why**: Solves "pay twice" problem for most users
-**Doc**: [STRATEGIC-VISION.md](STRATEGIC-VISION.md)
-
----
-
-## Technology Stack
-
-### Backend (Electron Main Process)
-- **Runtime**: Node.js 18+
-- **Framework**: Electron 27
-- **Database**: better-sqlite3 (SQLite)
-- **AI SDKs**: @anthropic-ai/sdk, openai (OpenAI-compatible)
-- **File Operations**: Node.js fs/promises
-- **Code Parsing**: Regex (Phase B.75), tree-sitter (future), LSP (Phase D.5)
-
-### Frontend (Electron Renderer)
-- **Framework**: React 19
-- **UI Library**: Ant Design 6
-- **Editor**: Monaco Editor (@monaco-editor/react)
-- **State Management**: React Context API
-- **Styling**: CSS + Ant Design theming
-
-### Build & Tooling
-- **Bundler**: Webpack 5
-- **Linter**: ESLint 9
-- **Testing**: (TBD - Vitest or Jest)
-
----
-
-## File Organization
+## 📁 Documentation Structure
 
 ```
 docs/
-├── README.md (this file)           # Documentation index
-├── STRATEGIC-VISION.md             # ⭐ Strategic positioning
-├── CODE-INDEXING-DESIGN.md         # 🔥 Current focus
-├── ACTION-ITEMS.md                 # 🎯 Task tracking
-├── TONIGHT-SUMMARY.md              # 📅 Session summary
-├── Implementation-Status.md        # 📊 Progress tracker
-├── MVP-Plan-v2.md                  # 📋 Overall plan
-├── QUICK-START.md                  # 📖 User guide
-├── TOOL-USE-DESIGN.md              # Tool system design
-├── TESTING-LOCAL-LLM.md            # Testing guide
-├── FEATURE_INTEGRATION.md          # Integration patterns
-├── ROADMAP.md                      # Long-term roadmap
-├── TESTING_PLAN.md                 # Test strategy
-├── decisions/                      # Architecture Decision Records
-│   └── 001-adapter-pattern.md
-├── dev-notes/                      # Session notes
-│   ├── 2026-01-14-evening-local-llm-pivot.md
-│   └── 2026-01-13-phase1-progress.md
-└── features/                       # Feature specifications
-    └── token-budgeting.md
+├── README.md                    # This file - documentation index
+├── STATUS.md                    # Current project status (updated each session)
+├── ROADMAP.md                   # Vision, phases, next steps
+│
+├── sessions/                    # Date-stamped session notes
+│   ├── 2026-01-26.md           # Latest session
+│   └── ...                      # Previous sessions
+│
+├── features/                    # Feature specifications
+│   ├── agentic-tools.md        # Tool use design
+│   └── token-budgeting.md      # Token management (future)
+│
+├── guides/                      # User and developer guides
+│   ├── QUICK-START.md          # Getting started
+│   └── TESTING-LOCAL-LLM.md    # Local model setup
+│
+├── decisions/                   # Architecture Decision Records
+│   └── 001-adapter-pattern.md  # Why adapter pattern
+│
+└── archive/                     # Historical documents (reference only)
+    ├── Implementation-Status.md # Old detailed status
+    ├── MVP-Plan.md             # Original plan
+    └── ...                      # Other old docs
 ```
 
 ---
 
-## How to Use This Documentation
+## 📖 How to Use This Documentation
 
-### For New Contributors
-1. Read [QUICK-START.md](QUICK-START.md) to understand the product
-2. Read [MVP-Plan-v2.md](MVP-Plan-v2.md) to understand the vision
-3. Read [Implementation-Status.md](Implementation-Status.md) to see what's done
-4. Read [ACTION-ITEMS.md](ACTION-ITEMS.md) to see what needs work
-5. Pick a task and start coding!
+### 🆕 Starting Fresh?
+1. Read [STATUS.md](STATUS.md) - understand current reality
+2. Read [ROADMAP.md](ROADMAP.md) - understand the vision
+3. Read [guides/QUICK-START.md](guides/QUICK-START.md) - get the app running
 
-### For Returning Contributors
-1. Check [TONIGHT-SUMMARY.md](TONIGHT-SUMMARY.md) for session-specific context
-2. Review [ACTION-ITEMS.md](ACTION-ITEMS.md) for priorities
-3. Check [Implementation-Status.md](Implementation-Status.md) for latest progress
-4. Read relevant design docs (e.g., [CODE-INDEXING-DESIGN.md](CODE-INDEXING-DESIGN.md))
+### 🔨 Continuing Development?
+1. Check [sessions/latest](sessions/) - what happened last time
+2. Review [STATUS.md](STATUS.md) - current priorities
+3. Pick a task and get coding
 
-### For Product/Planning
-1. Read [STRATEGIC-VISION.md](STRATEGIC-VISION.md) for strategic direction
-2. Review [ROADMAP.md](ROADMAP.md) for long-term plans
-3. Check [features/](features/) for specific feature specs
-4. Update [MVP-Plan-v2.md](MVP-Plan-v2.md) as strategy evolves
+### 📝 Contributing?
+1. Read relevant feature docs in [features/](features/)
+2. Check [decisions/](decisions/) for architectural context
+3. Update [sessions/YYYY-MM-DD.md](sessions/) with your work
 
 ---
 
-## Documentation Standards
+## 📋 Document Types
 
-### File Naming
-- **ALL_CAPS.md** - Top-level documents (README, ROADMAP, etc.)
-- **kebab-case.md** - Feature specs, design docs
-- **YYYY-MM-DD-description.md** - Session notes, dated content
+### Living Documents (Update Frequently)
+- **STATUS.md** - The source of truth for "where are we now"
+- **ROADMAP.md** - High-level vision and next steps
+- **sessions/YYYY-MM-DD.md** - Daily work log (create new, don't edit old)
 
-### Document Structure
-- **Title** - Clear, descriptive
-- **Metadata** - Date, status, context
-- **Table of Contents** - For docs >100 lines
-- **Code Examples** - Annotated, runnable
-- **Status Indicators** - ✅ Complete, 🔥 Current, ⏳ Planned, ❌ Blocked
+### Reference Documents (Write Once, Reference Often)
+- **features/*.md** - Detailed feature specifications
+- **guides/*.md** - How-to documentation
+- **decisions/*.md** - Architecture Decision Records (ADRs)
 
-### Maintenance
-- **Update dates** when content changes significantly
-- **Archive** old versions (don't delete)
-- **Link between** related documents
-- **Tag priorities** (CRITICAL, HIGH, MEDIUM, LOW)
+### Archive (Historical Reference)
+- Old detailed status docs
+- Outdated plans
+- Session notes that got too long
+- **Don't delete, just move to archive/**
 
 ---
 
-## Key Metrics
+## ✍️ Documentation Standards
 
-### Code Stats (as of 2026-01-15)
-- **Total Production Code**: ~7,529 lines
-- **Documentation**: ~4,500 lines
-- **Tests**: (TBD)
-- **Files Created**: 30 files
-- **Files Modified**: 19 files
+### Session Notes
+- **File name**: `sessions/YYYY-MM-DD.md`
+- **Format**: See template in latest session
+- **Sections**: Goals, What We Did, Insights, Next Steps, Files Changed
+- **Rule**: Create new file each session, never edit old ones
+
+### Feature Specs
+- **File name**: `features/feature-name.md`
+- **Include**: Goal, Design, Implementation notes, Testing
+- **Keep focused**: One feature per file
+
+### ADRs (Architecture Decision Records)
+- **File name**: `decisions/NNN-short-title.md`
+- **Format**: Context, Decision, Consequences
+- **Immutable**: Once written, don't change (create new ADR instead)
+
+---
+
+## 🔍 Finding Information
+
+**"What's the current status?"**
+→ Read [STATUS.md](STATUS.md)
+
+**"What happened last session?"**
+→ Read [sessions/latest](sessions/)
+
+**"How does feature X work?"**
+→ Check [features/X.md](features/)
+
+**"Why did we choose Y?"**
+→ Check [decisions/](decisions/)
+
+**"How do I get started?"**
+→ Read [guides/QUICK-START.md](guides/QUICK-START.md)
+
+**"What's the long-term plan?"**
+→ Read [ROADMAP.md](ROADMAP.md)
+
+---
+
+## 🎯 Current Focus (from STATUS.md)
+
+**Priority**: Wire agentic tools to Claude API
+
+**Status**:
+- ✅ All tools implemented (8 tools)
+- ✅ Approval workflow complete
+- ❌ Tools not connected to Claude API (critical gap)
+
+**Next Steps**:
+1. Add tool definitions to API requests
+2. Parse tool_use blocks from responses
+3. Implement tool execution loop
+4. Add system prompt for agentic behavior
+
+See [STATUS.md](STATUS.md) for full details.
+
+---
+
+## 📈 Project Stats
+
+### Codebase
+- **Production Code**: ~10,000 lines
+- **Services**: 15+ service files
+- **UI Components**: 20+ components
+- **Tools Implemented**: 8 tools ready to wire
+
+### Documentation
+- **Current Docs**: 5 living documents
+- **Session Notes**: Growing archive
+- **Feature Specs**: 2 (more coming)
+- **Guides**: 2 user guides
 
 ### Progress
-- **Phases Complete**: 1-5, A, B (10 phases)
-- **Phases In Progress**: B.5, B.75 (2 phases)
-- **Phases Planned**: C, D, D.5, E (4 phases)
-- **Overall Progress**: 75% complete (15/20 phases)
-
-### Time Invested
-- **Infrastructure** (Phases 1-5): ~40 hours
-- **Phase A** (Local LLMs): ~2 hours
-- **Phase B** (Tool Use): ~3 hours
-- **Documentation**: ~8 hours
-- **Total**: ~53 hours
+- ✅ **Infrastructure**: Complete (100%)
+- ✅ **UI**: Complete (100%)
+- ✅ **Tool Implementation**: Complete (100%)
+- ⏳ **Tool Wiring**: Next priority (0%)
 
 ---
 
-## Version History
+## 🤝 Contributing Guidelines
 
-### v1.2 - 2026-01-15 (Current)
-- ✅ Phase B complete (tool use system)
-- 📖 Strategic vision documented
-- 🔍 Code indexing design complete
-- 🎯 Phase B.5 ready for implementation
+### Updating Documentation
 
-### v1.1 - 2026-01-14
-- ✅ Phase A complete (local LLMs)
-- 📖 Local-first strategy documented
-- 🧪 Testing guides created
+**After Each Session**:
+1. Create `sessions/YYYY-MM-DD.md` with today's work
+2. Update [STATUS.md](STATUS.md) if priorities changed
+3. Commit both files together
 
-### v1.0 - 2026-01-13
-- ✅ Phases 1-5 complete (infrastructure)
-- 📖 MVP plan documented
-- 🏗️ Adapter pattern implemented
+**When Adding Features**:
+1. Create `features/feature-name.md` with design
+2. Update [ROADMAP.md](ROADMAP.md) if milestone changes
+3. Update [STATUS.md](STATUS.md) when feature completes
+
+**When Making Architectural Decisions**:
+1. Create `decisions/NNN-title.md` as ADR
+2. Reference in relevant feature docs
+3. Update [STATUS.md](STATUS.md) if it impacts current work
+
+---
+
+## 🗂️ Archive Policy
+
+**What Goes in Archive**:
+- Documents that are outdated but useful for reference
+- Old detailed status docs replaced by newer structure
+- Deprecated plans and designs
+- Historical session notes (if we consolidate)
+
+**What Stays Current**:
+- STATUS.md, ROADMAP.md (living docs)
+- Recent session notes (last 30 days)
+- Active feature specs
+- All ADRs (they're historical by nature)
 
 ---
 
-## Questions?
+## 🔮 Future Enhancements
 
-**For immediate help**:
-- Check [ACTION-ITEMS.md](ACTION-ITEMS.md) - "What should I work on?"
-- Check [TONIGHT-SUMMARY.md](TONIGHT-SUMMARY.md) - "What's happening now?"
-- Check [Implementation-Status.md](Implementation-Status.md) - "What's done?"
+**Timeline Display** (user request):
+- Build UI to visualize session notes chronologically
+- See project evolution over time
+- Jump to specific dates
+- Search across all sessions
 
-**For strategic questions**:
-- Read [STRATEGIC-VISION.md](STRATEGIC-VISION.md) - "Why are we building this?"
-- Read [MVP-Plan-v2.md](MVP-Plan-v2.md) - "What's the plan?"
+**Better Navigation**:
+- Auto-generate "latest session" link
+- Index of all features
+- Search functionality
 
-**For technical details**:
-- Read specific design docs (e.g., [CODE-INDEXING-DESIGN.md](CODE-INDEXING-DESIGN.md))
-- Read [decisions/](decisions/) for architecture decisions
+**Templates**:
+- Session note template
+- Feature spec template
+- ADR template
 
 ---
+
+**Questions?** Check [STATUS.md](STATUS.md) or read the latest session notes.
 
 **Happy building!** 🚀

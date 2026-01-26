@@ -11,6 +11,7 @@ const TokenCounterService = require('./services/TokenCounterService');
 const ToolExecutionService = require('./services/ToolExecutionService');
 const CodeIndexService = require('./services/CodeIndexService');
 const LocalModelService = require('./services/LocalModelService');
+const IPCToolContext = require('./services/IPCToolContext');
 const logService = require('./services/LogService');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -27,6 +28,7 @@ let tokenCounterService;
 let toolExecutionService;
 let codeIndexService;
 let localModelService;
+let ipcToolContext;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -324,11 +326,7 @@ const setupIPC = () => {
     const { internalContext, model, provider, projectRoot } = data;
 
     try {
-      // Note: Tool execution is handled in the main process via toolExecutionService
-      // The toolContext approval workflow happens in the renderer
-      // For now, we pass null for toolContext - full integration needs more work
-
-      // Send message with streaming callbacks
+      // Send message with streaming callbacks and tool support
       const response = await aiProviderService.sendMessage(
         internalContext,
         model,
@@ -360,10 +358,10 @@ const setupIPC = () => {
         },
         // Tool execution service
         toolExecutionService,
-        // Tool context (null for now - approval workflow needs renderer integration)
-        null,
+        // Tool context (IPC bridge for approval workflow)
+        ipcToolContext,
         // Project root
-        projectRoot || null
+        projectRoot || openFolderPath || null
       );
 
       return { success: true };
@@ -410,6 +408,27 @@ const setupIPC = () => {
     } catch (error) {
       console.error('Failed to validate API key:', error);
       return false;
+    }
+  });
+
+  // ============================================================================
+  // TOOL APPROVAL HANDLERS
+  // ============================================================================
+
+  /**
+   * Handle tool approval response from renderer
+   */
+  ipcMain.handle('tool:approval-response', async (event, data) => {
+    const { id, approved, modifiedToolCall } = data;
+
+    try {
+      if (ipcToolContext) {
+        ipcToolContext.handleApprovalResponse(id, approved, modifiedToolCall);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to handle approval response:', error);
+      return { success: false, error: error.message };
     }
   });
 
@@ -711,8 +730,12 @@ const setupIPC = () => {
 
 app.on('ready', () => {
   initializeServices();
-  setupIPC();
   createWindow();
+
+  // Initialize IPC Tool Context after window is created
+  ipcToolContext = new IPCToolContext(mainWindow);
+
+  setupIPC();
 });
 
 app.on('window-all-closed', () => {

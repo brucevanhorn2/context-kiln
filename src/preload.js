@@ -95,6 +95,16 @@ contextBridge.exposeInMainWorld('electron', {
   setToolProjectRoot: (projectRoot) =>
     ipcRenderer.invoke('tool:set-project-root', projectRoot),
 
+  // Tool approval workflow
+  onToolApprovalRequest: (callback) => {
+    ipcRenderer.on('tool:approval-request', (event, data) => {
+      callback(data);
+    });
+  },
+
+  sendToolApprovalResponse: (id, approved, modifiedToolCall) =>
+    ipcRenderer.invoke('tool:approval-response', { id, approved, modifiedToolCall }),
+
   // ============================================================================
   // LOGGING
   // ============================================================================

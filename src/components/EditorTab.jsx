@@ -1,8 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Spin, Alert } from 'antd';
+import { Spin, Alert, Button, Tooltip } from 'antd';
+import { EyeOutlined, EditOutlined } from '@ant-design/icons';
 import { useEditor } from '../contexts/EditorContext';
 import { useSettings } from '../contexts/SettingsContext';
+import MessageContent from './MessageContent';
 
 /**
  * EditorTab - Monaco Editor wrapper for a single file
@@ -26,9 +28,13 @@ function EditorTab({ filePath }) {
 
   const { settings } = useSettings();
   const editorRef = useRef(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // Find the file
   const file = openFiles.find((f) => f.path === filePath);
+
+  // Check if this is a markdown file
+  const isMarkdown = file?.language === 'markdown' || filePath?.endsWith('.md');
 
   /**
    * Handle editor mount
@@ -104,6 +110,34 @@ function EditorTab({ filePath }) {
 
   return (
     <div style={{ height: '100%', position: 'relative' }}>
+      {/* Markdown preview toggle */}
+      {isMarkdown && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: file.isDirty ? '120px' : '8px',
+            zIndex: 10,
+          }}
+        >
+          <Tooltip title={isPreviewMode ? 'Edit markdown' : 'Preview markdown'}>
+            <Button
+              type="default"
+              size="small"
+              icon={isPreviewMode ? <EditOutlined /> : <EyeOutlined />}
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              style={{
+                background: '#3c3c3c',
+                border: '1px solid #555',
+                color: '#d4d4d4',
+              }}
+            >
+              {isPreviewMode ? 'Edit' : 'Preview'}
+            </Button>
+          </Tooltip>
+        </div>
+      )}
+
       {/* Dirty indicator */}
       {file.isDirty && (
         <div
@@ -124,36 +158,51 @@ function EditorTab({ filePath }) {
         </div>
       )}
 
-      <Editor
-        height="100%"
-        language={file.language}
-        value={file.content}
-        onChange={handleChange}
-        onMount={handleEditorMount}
-        theme={settings.editorTheme || 'vs-dark'}
-        loading={<Spin size="large" style={{ marginTop: '100px' }} />}
-        options={{
-          fontSize: settings.editorFontSize || 14,
-          tabSize: settings.editorTabSize || 2,
-          wordWrap: settings.editorWordWrap ? 'on' : 'off',
-          minimap: editorSettings.minimap || { enabled: true },
-          lineNumbers: editorSettings.lineNumbers || 'on',
-          automaticLayout: true,
-          scrollBeyondLastLine: false,
-          readOnly: false,
-          contextmenu: true,
-          quickSuggestions: true,
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnEnter: 'on',
-          tabCompletion: 'on',
-          wordBasedSuggestions: true,
-          parameterHints: { enabled: true },
-          autoClosingBrackets: 'always',
-          autoClosingQuotes: 'always',
-          formatOnPaste: true,
-          formatOnType: true,
-        }}
-      />
+      {/* Show either preview or editor */}
+      {isMarkdown && isPreviewMode ? (
+        <div
+          style={{
+            height: '100%',
+            overflow: 'auto',
+            padding: '20px 40px',
+            background: '#1e1e1e',
+            paddingBottom: '40px', // Space for info bar
+          }}
+        >
+          <MessageContent content={file.content} />
+        </div>
+      ) : (
+        <Editor
+          height="100%"
+          language={file.language}
+          value={file.content}
+          onChange={handleChange}
+          onMount={handleEditorMount}
+          theme={settings.editorTheme || 'vs-dark'}
+          loading={<Spin size="large" style={{ marginTop: '100px' }} />}
+          options={{
+            fontSize: settings.editorFontSize || 14,
+            tabSize: settings.editorTabSize || 2,
+            wordWrap: settings.editorWordWrap ? 'on' : 'off',
+            minimap: editorSettings.minimap || { enabled: true },
+            lineNumbers: editorSettings.lineNumbers || 'on',
+            automaticLayout: true,
+            scrollBeyondLastLine: false,
+            readOnly: false,
+            contextmenu: true,
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: true,
+            parameterHints: { enabled: true },
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            formatOnPaste: true,
+            formatOnType: true,
+          }}
+        />
+      )}
 
       {/* File info bar */}
       <div
@@ -174,6 +223,11 @@ function EditorTab({ filePath }) {
       >
         <div>{file.relativePath || filePath}</div>
         <div>
+          {isMarkdown && isPreviewMode && (
+            <span style={{ marginRight: '12px', color: '#4fc3f7' }}>
+              PREVIEW
+            </span>
+          )}
           <span style={{ marginRight: '12px' }}>
             {file.language.toUpperCase()}
           </span>

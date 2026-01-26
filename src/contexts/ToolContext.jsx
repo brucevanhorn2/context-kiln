@@ -10,7 +10,7 @@
  * human-in-the-loop approval workflow for file modifications.
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const ToolContext = createContext();
 
@@ -96,7 +96,21 @@ export function ToolProvider({ children }) {
           { ...toolCall, approvedAt: Date.now() },
         ]);
 
-        // Resolve the promise
+        // Build modified tool call if content was edited
+        const modifiedToolCall = editedContent
+          ? { ...toolCall, parameters: { ...toolCall.parameters, content: editedContent } }
+          : null;
+
+        // Send approval response to main process
+        if (window.electron && window.electron.sendToolApprovalResponse) {
+          window.electron.sendToolApprovalResponse(
+            toolCallId,
+            true,
+            modifiedToolCall
+          );
+        }
+
+        // Resolve the promise (for local tool execution)
         toolCall.resolve({
           approved: true,
           content: editedContent || toolCall.updatedContent,
@@ -136,7 +150,12 @@ export function ToolProvider({ children }) {
           { ...toolCall, rejectedAt: Date.now() },
         ]);
 
-        // Reject the promise
+        // Send rejection response to main process
+        if (window.electron && window.electron.sendToolApprovalResponse) {
+          window.electron.sendToolApprovalResponse(toolCallId, false, null);
+        }
+
+        // Reject the promise (for local tool execution)
         toolCall.reject(new Error(reason || 'User rejected this change'));
 
         // Remove from pending
@@ -230,6 +249,30 @@ export function ToolProvider({ children }) {
     },
     [pendingToolCalls, toolHistory]
   );
+
+  /**
+   * Listen for tool approval requests from main process
+   */
+  useEffect(() => {
+    if (!window.electron || !window.electron.onToolApprovalRequest) {
+      return;
+    }
+
+    const handleApprovalRequest = (data) => {
+      const { id, toolCall } = data;
+
+      // Add to pending queue (automatically shows approval UI)
+      addPendingToolCall({
+        ...toolCall,
+        id: id, // Use the approval ID from main process
+      });
+    };
+
+    // Register listener
+    window.electron.onToolApprovalRequest(handleApprovalRequest);
+
+    // Cleanup not needed - IPC listeners are managed by preload
+  }, [addPendingToolCall]);
 
   const value = {
     // State
