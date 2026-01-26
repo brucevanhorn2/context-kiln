@@ -6,6 +6,7 @@ import CenterPanel from './components/CenterPanel';
 import ContextTools from './ContextTools';
 import SettingsModal from './components/SettingsModal';
 import SessionSelector from './components/SessionSelector';
+import TokenMeter from './components/TokenMeter';
 import './Layout.css';
 
 // Import context providers
@@ -101,6 +102,10 @@ function LayoutInner() {
         }}
       >
         <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Context Kiln</div>
+
+        {/* Token Meter - center of header for visibility */}
+        <TokenMeter />
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <SessionSelector
             projectPath={openFolderPath}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('EditorContext');
@@ -52,6 +52,9 @@ export const EditorProvider = ({ children }) => {
   const [activeFilePath, setActiveFilePath] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Ref to store the active Monaco editor instance
+  const activeEditorRef = useRef(null);
 
   // Editor settings (could be moved to SettingsContext later)
   const [editorSettings, setEditorSettings] = useState({
@@ -364,6 +367,64 @@ export const EditorProvider = ({ children }) => {
     [isFileOpen]
   );
 
+  /**
+   * Register the active Monaco editor instance
+   * Called by EditorTab when editor mounts
+   *
+   * @param {object} editor - Monaco editor instance
+   */
+  const registerActiveEditor = useCallback((editor) => {
+    activeEditorRef.current = editor;
+  }, []);
+
+  /**
+   * Unregister the active Monaco editor instance
+   * Called by EditorTab when editor unmounts
+   */
+  const unregisterActiveEditor = useCallback(() => {
+    activeEditorRef.current = null;
+  }, []);
+
+  /**
+   * Insert text at cursor position in active editor
+   *
+   * @param {string} text - Text to insert
+   * @returns {boolean} True if inserted successfully
+   */
+  const insertAtCursor = useCallback((text) => {
+    const editor = activeEditorRef.current;
+    if (!editor) {
+      log.warn('No active editor to insert into');
+      return false;
+    }
+
+    try {
+      const selection = editor.getSelection();
+      const id = { major: 1, minor: 1 };
+      const op = {
+        identifier: id,
+        range: selection,
+        text: text,
+        forceMoveMarkers: true,
+      };
+      editor.executeEdits('insert-from-chat', [op]);
+      editor.focus();
+      return true;
+    } catch (err) {
+      log.error('Failed to insert at cursor', { error: err.message });
+      return false;
+    }
+  }, []);
+
+  /**
+   * Check if there's an active editor available
+   *
+   * @returns {boolean} True if editor is available
+   */
+  const hasActiveEditor = useCallback(() => {
+    return activeEditorRef.current !== null;
+  }, []);
+
   // Context value
   const value = {
     // State
@@ -389,6 +450,12 @@ export const EditorProvider = ({ children }) => {
     revertFile,
     setActiveFile,
     updateEditorSettings,
+
+    // Editor instance management
+    registerActiveEditor,
+    unregisterActiveEditor,
+    insertAtCursor,
+    hasActiveEditor,
   };
 
   return (

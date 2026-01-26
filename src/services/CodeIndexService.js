@@ -44,14 +44,11 @@ class CodeIndexService {
       throw new Error('CodeIndexService not initialized');
     }
 
-    console.log(`[CodeIndexService] Building index for: ${this.projectRoot}`);
-
     // Clear existing index for this project
     await this.clearIndex();
 
     // Find all source files
     const files = await this.findSourceFiles(this.projectRoot);
-    console.log(`[CodeIndexService] Found ${files.length} source files`);
 
     const stats = {
       filesProcessed: 0,
@@ -75,11 +72,9 @@ class CodeIndexService {
       } catch (error) {
         stats.filesSkipped++;
         stats.errors.push({ file: files[i], error: error.message });
-        console.error(`[CodeIndexService] Error indexing ${files[i]}:`, error);
       }
     }
 
-    console.log(`[CodeIndexService] Index complete:`, stats);
     return stats;
   }
 

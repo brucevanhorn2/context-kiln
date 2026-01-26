@@ -20,6 +20,8 @@ function EditorTab({ filePath }) {
     updateFileContent,
     saveFile,
     editorSettings,
+    registerActiveEditor,
+    unregisterActiveEditor,
   } = useEditor();
 
   const { settings } = useSettings();
@@ -34,6 +36,9 @@ function EditorTab({ filePath }) {
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
 
+    // Register with EditorContext so other components can insert text
+    registerActiveEditor(editor);
+
     // Add Ctrl+S save command
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
       await handleSave();
@@ -42,6 +47,16 @@ function EditorTab({ filePath }) {
     // Focus editor
     editor.focus();
   };
+
+  /**
+   * Cleanup on unmount
+   */
+  useEffect(() => {
+    return () => {
+      // Unregister editor when component unmounts
+      unregisterActiveEditor();
+    };
+  }, [unregisterActiveEditor]);
 
   /**
    * Handle content change
@@ -58,11 +73,7 @@ function EditorTab({ filePath }) {
   const handleSave = async () => {
     if (!file?.isDirty) return;
 
-    const success = await saveFile(filePath);
-    if (success) {
-      // Show brief success indicator (could add toast notification)
-      console.log(`Saved: ${filePath}`);
-    }
+    await saveFile(filePath);
   };
 
   /**

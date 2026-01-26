@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Space, Spin } from 'antd';
-import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Input, Space, Spin, Select } from 'antd';
+import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useClaude } from './contexts/ClaudeContext';
 import DiffPreviewModal from './components/DiffPreviewModal';
+import MessageContent from './components/MessageContent';
 
 function ChatInterface() {
   const {
@@ -11,10 +12,12 @@ function ChatInterface() {
     error,
     currentProvider,
     currentModel,
+    availableModels,
     sendMessage,
     stopStreaming,
     clearMessages,
     clearError,
+    switchModel,
   } = useClaude();
 
   const [inputValue, setInputValue] = useState('');
@@ -50,7 +53,7 @@ function ChatInterface() {
         padding: '16px',
       }}
     >
-      {/* Provider Info */}
+      {/* Provider Info with Model Selector */}
       <div
         style={{
           padding: '8px 12px',
@@ -65,9 +68,21 @@ function ChatInterface() {
         }}
       >
         <RobotOutlined />
-        <span>
-          {currentProvider} / {currentModel}
-        </span>
+        <span>{currentProvider} /</span>
+        <Select
+          value={currentModel}
+          onChange={switchModel}
+          size="small"
+          style={{ minWidth: '180px' }}
+          dropdownStyle={{ background: '#2a2a2a' }}
+          disabled={isStreaming}
+        >
+          {availableModels.map((model) => (
+            <Select.Option key={model.id || model} value={model.id || model}>
+              {model.name || model.id || model}
+            </Select.Option>
+          ))}
+        </Select>
         {messages.length === 0 && (
           <span style={{ marginLeft: 'auto', color: '#666' }}>
             No API key configured - Go to Settings
@@ -154,7 +169,13 @@ function ChatInterface() {
             </p>
           </div>
         )}
-        {messages.map((message) => (
+        {messages.map((message, index) => {
+          // Check if this is the last assistant message (for spinner display)
+          const isLastMessage = index === messages.length - 1;
+          const isActivelyStreaming = isLastMessage && message.role === 'assistant' && isStreaming;
+          const isCompleted = message.role === 'assistant' && !isStreaming && message.tokens;
+
+          return (
           <div
             key={message.id}
             style={{
@@ -164,8 +185,9 @@ function ChatInterface() {
             }}
           >
             <div
+              className="message-content"
               style={{
-                maxWidth: '70%',
+                maxWidth: '85%',
                 padding: '10px 14px',
                 borderRadius: '8px',
                 backgroundColor:
@@ -174,18 +196,31 @@ function ChatInterface() {
                 fontSize: '13px',
                 lineHeight: '1.5',
                 position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              {message.content}
-              {message.isStreaming && (
+              <MessageContent content={message.content} />
+              {isActivelyStreaming && (
                 <Spin
                   size="small"
                   style={{ marginLeft: '8px', verticalAlign: 'middle' }}
                 />
               )}
+              {isCompleted && (
+                <CheckCircleOutlined
+                  style={{
+                    marginLeft: '8px',
+                    verticalAlign: 'middle',
+                    color: '#52c41a',
+                    fontSize: '12px',
+                  }}
+                  title={`${message.tokens.output || message.tokens.outputTokens || 0} tokens`}
+                />
+              )}
             </div>
           </div>
-        ))}
+        );
+        })}
         <div ref={messagesEndRef} />
       </div>
 

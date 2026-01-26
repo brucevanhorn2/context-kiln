@@ -1,9 +1,45 @@
 import React, { useState } from 'react';
-import { Select, Button, Modal, Input, message, Space, Typography } from 'antd';
-import { PlusOutlined, FolderOutlined } from '@ant-design/icons';
+import { Select, Button, Modal, Input, message, Space, Typography, Tooltip } from 'antd';
+import { PlusOutlined, FolderOutlined, ClockCircleOutlined, MessageOutlined } from '@ant-design/icons';
 import { useSession } from '../contexts/SessionContext';
 
 const { Text } = Typography;
+
+/**
+ * Format date for display
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return 'Unknown';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return `Today ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (diffDays === 1) {
+    return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else {
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+}
+
+/**
+ * Format full date for tooltip
+ */
+function formatFullDate(dateStr) {
+  if (!dateStr) return 'Unknown';
+  const date = new Date(dateStr);
+  return date.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 /**
  * SessionSelector - Select and manage sessions
@@ -81,12 +117,42 @@ function SessionSelector({ projectPath, projectId }) {
           onChange={handleSessionChange}
           loading={isLoading}
           placeholder="Select session..."
-          style={{ minWidth: '200px' }}
+          style={{ minWidth: '280px' }}
           size="small"
+          optionLabelProp="label"
+          dropdownStyle={{ minWidth: '350px' }}
         >
           {activeSessions.map((session) => (
-            <Select.Option key={session.uuid} value={session.uuid}>
-              {session.name}
+            <Select.Option
+              key={session.uuid}
+              value={session.uuid}
+              label={session.name}
+            >
+              <Tooltip
+                title={
+                  <div>
+                    <div><strong>Created:</strong> {formatFullDate(session.createdAt)}</div>
+                    <div><strong>Last used:</strong> {formatFullDate(session.lastAccessed)}</div>
+                  </div>
+                }
+                placement="left"
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ fontWeight: 500, color: '#d4d4d4' }}>
+                    {session.name}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#888', display: 'flex', gap: '12px' }}>
+                    <span>
+                      <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                      Started: {formatDate(session.createdAt)}
+                    </span>
+                    <span>
+                      <MessageOutlined style={{ marginRight: '4px' }} />
+                      Last: {formatDate(session.lastAccessed)}
+                    </span>
+                  </div>
+                </div>
+              </Tooltip>
             </Select.Option>
           ))}
         </Select>

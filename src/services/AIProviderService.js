@@ -64,8 +64,6 @@ class AIProviderService {
       instance: localAdapter,
       config: { localModelService },
     };
-
-    console.log('[AIProviderService] LocalModelAdapter registered');
   }
 
   /**

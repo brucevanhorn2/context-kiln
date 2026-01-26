@@ -46,10 +46,7 @@ class DatabaseService {
 
       // Run schema (will create tables if they don't exist)
       this._runSchema();
-
-      console.log(`Database initialized at: ${this.dbPath}`);
     } catch (error) {
-      console.error('Failed to initialize database:', error);
       throw error;
     }
   }

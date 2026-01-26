@@ -55,6 +55,7 @@ export const ClaudeProvider = ({ children }) => {
   // Refs for streaming
   const streamingMessageIdRef = useRef(null);
   const streamingContentRef = useRef('');
+  const streamingStartTimeRef = useRef(null);
 
   /**
    * Load available providers on mount
@@ -122,6 +123,11 @@ export const ClaudeProvider = ({ children }) => {
       if (!streamingMessageIdRef.current) return;
 
       if (chunk.type === 'chunk' && chunk.content) {
+        // Record start time on first chunk
+        if (!streamingStartTimeRef.current) {
+          streamingStartTimeRef.current = Date.now();
+        }
+
         // Append to streaming content
         streamingContentRef.current += chunk.content;
 
@@ -134,7 +140,11 @@ export const ClaudeProvider = ({ children }) => {
           )
         );
       } else if (chunk.type === 'done') {
-        // Streaming complete
+        // Streaming complete - calculate duration
+        const endTime = Date.now();
+        const startTime = streamingStartTimeRef.current || endTime;
+        const durationMs = endTime - startTime;
+
         const finalMessage = chunk.message;
 
         setMessages((prev) =>
@@ -146,6 +156,9 @@ export const ClaudeProvider = ({ children }) => {
                   tokens: finalMessage.usage,
                   cost: finalMessage.cost,
                   isStreaming: false,
+                  startTime,
+                  endTime,
+                  durationMs,
                 }
               : msg
           )
@@ -154,6 +167,7 @@ export const ClaudeProvider = ({ children }) => {
         // Reset streaming state
         streamingMessageIdRef.current = null;
         streamingContentRef.current = '';
+        streamingStartTimeRef.current = null;
         setIsStreaming(false);
       } else if (chunk.type === 'error') {
         // Streaming error
@@ -161,6 +175,7 @@ export const ClaudeProvider = ({ children }) => {
         setIsStreaming(false);
         streamingMessageIdRef.current = null;
         streamingContentRef.current = '';
+        streamingStartTimeRef.current = null;
       }
     };
 
@@ -214,6 +229,7 @@ export const ClaudeProvider = ({ children }) => {
         // Set up streaming refs
         streamingMessageIdRef.current = assistantMsgId;
         streamingContentRef.current = '';
+        streamingStartTimeRef.current = null; // Will be set on first chunk
 
         // Build internal context format
         const internalContext = {
@@ -241,6 +257,7 @@ export const ClaudeProvider = ({ children }) => {
         setIsStreaming(false);
         streamingMessageIdRef.current = null;
         streamingContentRef.current = '';
+        streamingStartTimeRef.current = null;
       }
     },
     [messages, contextFiles, currentModel, currentProvider]

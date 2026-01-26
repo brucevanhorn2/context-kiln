@@ -27,6 +27,19 @@
 
 .ant-tree .ant-tree-node-selected .ant-tree-node-content-wrapper {
   background: #0e639c !important;
+  color: #ffffff !important;
+}
+
+/* Fix selection highlight when node is selected but not focused */
+.ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background: #37373d !important;
+  color: #ffffff !important;
+}
+
+/* Focused selection state */
+.ant-tree-focused .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background: #0e639c !important;
+  color: #ffffff !important;
 }
 
 .ant-tree-icon {
@@ -159,4 +172,45 @@
 
 .message-assistant {
   align-self: flex-start;
+}
+
+/* Token Meter - streaming indicator */
+.streaming-dot {
+  width: 6px;
+  height: 6px;
+  background: #1890ff;
+  border-radius: 50%;
+  animation: streaming-pulse 1s ease-in-out infinite;
+}
+
+@keyframes streaming-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Message content markdown styling */
+.message-content p:first-child {
+  margin-top: 0;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code block scrolling */
+.message-content pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Ensure code blocks don't overflow message bubble */
+.message-content > div {
+  max-width: 100%;
+  overflow-x: auto;
 }

@@ -80,8 +80,6 @@ const createMenu = () => {
 
               // Build code index for the project (Phase B.75)
               try {
-                console.log('[Main] Building code index for:', folderPath);
-
                 // Get or create project in database
                 const project = databaseService.getOrCreateProject(folderPath);
 
@@ -111,8 +109,6 @@ const createMenu = () => {
                   message: `Index built: ${stats.symbolsFound} symbols, ${stats.importsFound} imports`,
                   stats,
                 });
-
-                console.log('[Main] Code index built:', stats);
               } catch (error) {
                 console.error('[Main] Error building code index:', error);
                 mainWindow.webContents.send('index-status', {
@@ -171,10 +167,7 @@ const createMenu = () => {
                   message: `Model loaded: ${modelInfo.name}`,
                   modelInfo,
                 });
-
-                console.log('[Main] Model loaded successfully:', modelInfo);
               } catch (error) {
-                console.error('[Main] Failed to load model:', error);
                 mainWindow.webContents.send('model-status', {
                   status: 'error',
                   message: `Failed to load model: ${error.message}`,

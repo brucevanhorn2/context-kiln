@@ -57,7 +57,6 @@ class LocalModelService {
 
     try {
       this.isLoading = true;
-      console.log('[LocalModelService] Loading model:', modelPath);
 
       // Check if file exists
       try {
@@ -69,7 +68,6 @@ class LocalModelService {
       // Get file stats
       const stats = await fs.stat(modelPath);
       const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2);
-      console.log(`[LocalModelService] Model file size: ${fileSizeMB} MB`);
 
       // Lazy load node-llama-cpp
       const { LlamaModel, LlamaContext, LlamaChatSession } = await getLlamaCpp();
@@ -79,15 +77,11 @@ class LocalModelService {
         ? options.gpuLayers
         : this._detectOptimalGpuLayers();
 
-      console.log(`[LocalModelService] GPU layers: ${gpuLayers}`);
-
       // Load model
       this.loadedModel = new LlamaModel({
         modelPath: modelPath,
         gpuLayers: gpuLayers,
       });
-
-      console.log('[LocalModelService] Model loaded, creating context...');
 
       // Create context
       const contextSize = options.contextSize || 2048;
@@ -96,8 +90,6 @@ class LocalModelService {
         contextSize: contextSize,
         threads: options.threads || Math.max(1, os.cpus().length - 1),
       });
-
-      console.log('[LocalModelService] Context created, initializing chat session...');
 
       // Create chat session
       this.chatSession = new LlamaChatSession({
@@ -115,11 +107,8 @@ class LocalModelService {
         loadedAt: new Date().toISOString(),
       };
 
-      console.log('[LocalModelService] Model ready:', this.modelInfo.name);
-
       return this.modelInfo;
     } catch (error) {
-      console.error('[LocalModelService] Failed to load model:', error);
       // Clean up on error
       await this.unloadModel();
       throw new Error(`Failed to load model: ${error.message}`);
@@ -132,8 +121,6 @@ class LocalModelService {
    * Unload current model and free memory
    */
   async unloadModel() {
-    console.log('[LocalModelService] Unloading model...');
-
     if (this.chatSession) {
       this.chatSession = null;
     }
@@ -148,7 +135,6 @@ class LocalModelService {
     }
 
     this.modelInfo = null;
-    console.log('[LocalModelService] Model unloaded');
   }
 
   /**
@@ -179,8 +165,6 @@ class LocalModelService {
     }
 
     try {
-      console.log('[LocalModelService] Generating completion...');
-
       // Build prompt from messages (simple concatenation for now)
       const prompt = this._formatMessagesAsPrompt(messages);
 
@@ -203,8 +187,6 @@ class LocalModelService {
           }
         },
       });
-
-      console.log(`[LocalModelService] Completion done (${tokenCount} tokens)`);
 
       return {
         content: fullResponse,

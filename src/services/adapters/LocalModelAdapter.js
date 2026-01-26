@@ -152,8 +152,6 @@ class LocalModelAdapter extends BaseAdapter {
         throw error;
       }
 
-      console.log('[LocalModelAdapter] Generating completion...');
-
       // Generate with streaming
       const result = await this.localModelService.generateChatCompletion(
         formattedRequest.messages,

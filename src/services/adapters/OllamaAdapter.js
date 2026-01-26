@@ -112,19 +112,15 @@ class OllamaAdapter extends BaseAdapter {
    */
   async getAvailableModels() {
     try {
-      console.log(`[OllamaAdapter] Fetching models from ${this.endpoint}/api/tags`);
       const response = await fetch(`${this.endpoint}/api/tags`);
 
       if (!response.ok) {
-        console.error(`[OllamaAdapter] HTTP ${response.status}: ${response.statusText}`);
         throw new Error(`Failed to fetch models: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log(`[OllamaAdapter] Received data:`, data);
 
       if (!data.models || !Array.isArray(data.models)) {
-        console.error('[OllamaAdapter] Invalid response format:', data);
         throw new Error('Invalid response from Ollama API');
       }
 
@@ -142,10 +138,8 @@ class OllamaAdapter extends BaseAdapter {
         modified: model.modified_at,
       }));
 
-      console.log(`[OllamaAdapter] Returning ${models.length} models:`, models.map(m => m.id));
       return models;
     } catch (error) {
-      console.error('[OllamaAdapter] Failed to fetch Ollama models:', error);
       // Re-throw so UI can show error instead of silently using fallback
       throw error;
     }
