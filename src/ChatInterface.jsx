@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Space, Spin, Select } from 'antd';
-import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined, CheckCircleOutlined, AudioOutlined, AudioMutedOutlined } from '@ant-design/icons';
 import { useClaude } from './contexts/ClaudeContext';
 import DiffPreviewModal from './components/DiffPreviewModal';
 import MessageContent from './components/MessageContent';
@@ -21,7 +21,9 @@ function ChatInterface() {
   } = useClaude();
 
   const [inputValue, setInputValue] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,6 +45,69 @@ function ChatInterface() {
       console.error('Failed to send message:', err);
     }
   };
+
+  const startSpeechRecognition = () => {
+    // Check for browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.error('Speech recognition not supported in this browser');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let finalTranscriptAccumulator = '';
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscriptAccumulator += transcript + ' ';
+        } else {
+          interimTranscript = transcript;
+        }
+      }
+
+      // Update input with accumulated final results plus current interim
+      setInputValue(finalTranscriptAccumulator + interimTranscript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+    setIsListening(true);
+    recognitionRef.current = recognition;
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
+  };
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -239,6 +304,15 @@ function ChatInterface() {
             borderColor: '#555555',
             color: '#d4d4d4',
           }}
+        />
+        <Button
+          icon={isListening ? <AudioMutedOutlined /> : <AudioOutlined />}
+          onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
+          disabled={isStreaming}
+          type={isListening ? 'primary' : 'default'}
+          danger={isListening}
+          title={isListening ? 'Stop recording' : 'Start voice input'}
+          style={isListening ? { backgroundColor: '#cf6679', borderColor: '#cf6679' } : {}}
         />
         {isStreaming ? (
           <Button
