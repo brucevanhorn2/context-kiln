@@ -194,6 +194,8 @@ class OllamaAdapter extends BaseAdapter {
    */
   async sendRequest(formattedRequest, onChunk, onComplete, onError) {
     try {
+      logService.info('OllamaAdapter', 'Starting request', { model: formattedRequest.model });
+
       const response = await fetch(`${this.endpoint}/api/chat`, {
         method: 'POST',
         headers: {
@@ -266,6 +268,13 @@ class OllamaAdapter extends BaseAdapter {
 
             // Handle completion
             if (data.done) {
+              logService.info('OllamaAdapter', 'Stream complete', {
+                contentLength: fullContent.length,
+                inputTokens: data.prompt_eval_count || 0,
+                outputTokens: data.eval_count || 0,
+                hasToolCalls: !!(fullMessage?.tool_calls?.length)
+              });
+
               const finalResponse = {
                 content: fullContent,
                 message: fullMessage, // Include full message for tool call detection
@@ -284,11 +293,25 @@ class OllamaAdapter extends BaseAdapter {
               return finalResponse;
             }
           } catch (parseError) {
-            logService.error('OllamaAdapter', 'Failed to parse Ollama response line', { error: parseError.message });
+            logService.error('OllamaAdapter', 'Failed to parse Ollama response line', {
+              error: parseError.message,
+              line: line.substring(0, 200) // Log first 200 chars of problematic line
+            });
           }
         }
       }
+
+      // If we get here, stream ended without done=true
+      logService.warn('OllamaAdapter', 'Stream ended without completion flag', {
+        contentLength: fullContent.length,
+        bufferRemaining: buffer.length
+      });
+
     } catch (error) {
+      logService.error('OllamaAdapter', 'Request failed', {
+        error: error.message,
+        stack: error.stack
+      });
       if (onError) {
         onError(error);
       }

@@ -491,8 +491,8 @@ class AIProviderService {
       const apiKeyId = this.settingsService ? await this.settingsService.getActiveApiKeyId(provider) : null;
 
       // Calculate cost
-      const models = this.getAvailableModels(provider);
-      const modelInfo = models.find(m => m.id === model);
+      const models = await this.getAvailableModels(provider);
+      const modelInfo = models ? models.find(m => m.id === model) : null;
       let costUsd = 0;
 
       if (modelInfo && modelInfo.pricing) {

@@ -15,6 +15,7 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 const { minimatch } = require('minimatch');
 const diffUtils = require('../utils/diffUtils');
+const logService = require('./LogService');
 
 // Simple language detection for file extensions (CommonJS-compatible)
 const LANGUAGE_MAP = {
@@ -64,37 +65,62 @@ class ToolExecutionService {
   async executeTool(toolCall, toolContext) {
     const { type, parameters } = toolCall;
 
+    logService.info('ToolExecutionService', 'Executing tool', {
+      type,
+      path: parameters?.path,
+      pattern: parameters?.pattern
+    });
+
     try {
+      let result;
       switch (type) {
         case 'read_file':
-          return await this.executeReadFile(parameters);
+          result = await this.executeReadFile(parameters);
+          break;
 
         case 'edit_file':
-          return await this.executeEditFile(parameters, toolContext);
+          result = await this.executeEditFile(parameters, toolContext);
+          break;
 
         case 'list_files':
-          return await this.executeListFiles(parameters);
+          result = await this.executeListFiles(parameters);
+          break;
 
         case 'create_file':
-          return await this.executeCreateFile(parameters, toolContext);
+          result = await this.executeCreateFile(parameters, toolContext);
+          break;
 
         case 'search_files':
-          return await this.executeSearchFiles(parameters);
+          result = await this.executeSearchFiles(parameters);
+          break;
 
         case 'find_files':
-          return await this.executeFindFiles(parameters);
+          result = await this.executeFindFiles(parameters);
+          break;
 
         case 'find_definition':
-          return await this.executeFindDefinition(parameters);
+          result = await this.executeFindDefinition(parameters);
+          break;
 
         case 'find_importers':
-          return await this.executeFindImporters(parameters);
+          result = await this.executeFindImporters(parameters);
+          break;
 
         default:
           throw new Error(`Unknown tool type: ${type}`);
       }
+
+      logService.info('ToolExecutionService', 'Tool execution complete', {
+        type,
+        success: result?.success
+      });
+
+      return result;
     } catch (error) {
-      console.error(`Tool execution error (${type}):`, error);
+      logService.error('ToolExecutionService', 'Tool execution error', {
+        type,
+        error: error.message
+      });
       throw error;
     }
   }
