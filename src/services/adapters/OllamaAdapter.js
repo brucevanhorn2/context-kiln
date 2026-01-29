@@ -1,4 +1,5 @@
 const BaseAdapter = require('./BaseAdapter');
+const logService = require('../LogService');
 
 /**
  * OllamaAdapter - Adapter for Ollama (local AI models)
@@ -25,8 +26,11 @@ class OllamaAdapter extends BaseAdapter {
   formatRequest(internalContext, model) {
     const messages = [];
 
-    // Add system message with tool instructions if tools are supported
-    if (this.supportsToolUse() && internalContext.enableTools !== false) {
+    // Check if this specific model supports tools
+    const modelSupportsTools = this._hasNativeFunctionCalling(model || 'llama3.1');
+
+    // Add system message with tool instructions if model supports tools
+    if (modelSupportsTools && internalContext.enableTools !== false) {
       messages.push({
         role: 'system',
         content: this._getSystemPromptWithTools(),
@@ -95,9 +99,10 @@ class OllamaAdapter extends BaseAdapter {
       }
     }
 
-    // Add tool definitions if supported and enabled
+    // Add tool definitions if model supports them and tools are enabled
     // Ollama 0.3.0+ supports OpenAI-compatible function calling with the tools parameter
-    if (this.supportsToolUse() && internalContext.enableTools !== false) {
+    // Only send tools to models that have native function calling support
+    if (modelSupportsTools && internalContext.enableTools !== false) {
       request.tools = this.getToolDefinitions();
     }
 
@@ -151,7 +156,8 @@ class OllamaAdapter extends BaseAdapter {
 
       // Transform Ollama model list to our format
       const models = data.models.map(model => {
-        const supportsTools = this._hasNativeFunctionCalling(model.name);
+        // Use both name and metadata for better detection
+        const supportsTools = this._hasNativeFunctionCalling(model.name, model.details);
         const baseDescription = `Local - ${(model.size / 1024 / 1024 / 1024).toFixed(1)} GB`;
 
         return {
@@ -225,8 +231,24 @@ class OllamaAdapter extends BaseAdapter {
             const data = JSON.parse(line);
 
             // Store the full message object for tool call detection
+            // IMPORTANT: Keep updating fullMessage with each chunk because tool_calls
+            // may only appear in later chunks (especially with reasoning models like qwen3)
             if (data.message) {
-              fullMessage = data.message;
+              // Preserve tool_calls if we already have them (don't let later chunks overwrite)
+              const existingToolCalls = fullMessage?.tool_calls;
+
+              // Merge new message data
+              fullMessage = {
+                ...fullMessage,
+                ...data.message
+              };
+
+              // If this chunk has tool_calls, use them; otherwise preserve existing ones
+              if (data.message.tool_calls) {
+                fullMessage.tool_calls = data.message.tool_calls;
+              } else if (existingToolCalls) {
+                fullMessage.tool_calls = existingToolCalls;
+              }
             }
 
             // Handle streaming chunk
@@ -262,7 +284,7 @@ class OllamaAdapter extends BaseAdapter {
               return finalResponse;
             }
           } catch (parseError) {
-            console.error('Failed to parse Ollama response line:', parseError);
+            logService.error('OllamaAdapter', 'Failed to parse Ollama response line', { error: parseError.message });
           }
         }
       }
@@ -285,7 +307,7 @@ class OllamaAdapter extends BaseAdapter {
       });
       return response.ok;
     } catch (error) {
-      console.error('Ollama validation failed:', error);
+      logService.error('OllamaAdapter', 'Ollama validation failed', { error: error.message });
       return false;
     }
   }
@@ -309,46 +331,90 @@ class OllamaAdapter extends BaseAdapter {
    * Check if model has native function calling support
    * Based on Ollama documentation and community testing
    * @param {string} modelName - Model identifier
+   * @param {object} details - Model metadata from Ollama (optional)
    * @private
    */
-  _hasNativeFunctionCalling(modelName) {
+  _hasNativeFunctionCalling(modelName, details = null) {
     if (!modelName) return false;
 
     const modelLower = modelName.toLowerCase();
 
-    // Known models with strong tool support
-    const toolCapableModels = [
-      // Qwen family - excellent tool support
-      'qwen2.5-coder',
-      'qwen2.5',
-      'qwen2',
+    // Extract family and parameter size from details if available
+    const family = details?.family?.toLowerCase();
+    const paramSize = details?.parameter_size;
 
-      // Llama 3.1+ (70B and larger recommended)
+    // Parse parameter size (e.g., "7.6B" -> 7.6)
+    let paramSizeNum = null;
+    if (paramSize) {
+      const match = paramSize.match(/^([\d.]+)[BM]/);
+      if (match) {
+        paramSizeNum = parseFloat(match[1]);
+        // Convert millions to billions
+        if (paramSize.includes('M')) {
+          paramSizeNum = paramSizeNum / 1000;
+        }
+      }
+    }
+
+    // Check by family first (more reliable than name parsing)
+    if (family) {
+      // Qwen3 family - all sizes have good tool support
+      if (family === 'qwen3') {
+        return true;
+      }
+
+      // Qwen2.5 - needs 14B+ for reliable tool support
+      if (family === 'qwen2.5' && paramSizeNum && paramSizeNum >= 14) {
+        return true;
+      }
+
+      // Qwen2 - needs 72B for good tool support
+      if (family === 'qwen2' && paramSizeNum && paramSizeNum >= 70) {
+        return true;
+      }
+
+      // Llama 3.1+ - needs 70B+
+      if ((family === 'llama3.1' || family === 'llama3.2' || family === 'llama3.3') && paramSizeNum && paramSizeNum >= 70) {
+        return true;
+      }
+
+      // Granite3 - all sizes
+      if (family === 'granite3') {
+        return true;
+      }
+
+      // Mistral - most variants support tools
+      if (family === 'mistral' && (modelLower.includes('small') || modelLower.includes('large') || modelLower.includes('nemo'))) {
+        return true;
+      }
+    }
+
+    // Fallback to name-based detection if no metadata
+    const toolCapablePatterns = [
+      'qwen3',
+      'qwen2.5-coder:14b',
+      'qwen2.5-coder:32b',
+      'qwen2.5:14b',
+      'qwen2.5:32b',
+      'qwen2.5:72b',
+      'qwen2:72b',
       'llama3.1:70b',
       'llama3.1:405b',
       'llama3.2:90b',
       'llama3.3:70b',
-
-      // Mistral family
       'mistral-small',
       'mistral-large',
       'mistral-nemo',
-
-      // Granite family (IBM)
       'granite3-dense',
       'granite3-moe',
-
-      // Command-R (Cohere)
       'command-r',
-
-      // Nemotron (NVIDIA)
       'nemotron',
-
-      // DeepSeek Coder
-      'deepseek-coder',
+      'deepseek-coder:14b',
+      'deepseek-coder:33b',
     ];
 
-    return toolCapableModels.some(model => modelLower.includes(model));
+    const result = toolCapablePatterns.some(pattern => modelLower.includes(pattern));
+    return result;
   }
 
   /**
@@ -543,6 +609,31 @@ class OllamaAdapter extends BaseAdapter {
           type: toolCall.function.name,
           parameters: toolCall.function.arguments,
         });
+      }
+    }
+    // Check for Qwen3-style XML tool calls in content
+    else if (apiResponse.content || (apiResponse.message && apiResponse.message.content)) {
+      const content = apiResponse.content || apiResponse.message.content;
+
+      // Parse XML-style tool calls: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
+      const xmlPattern = /<tool_call>\s*(\{[^<]+\})\s*<\/tool_call>/g;
+      let match;
+
+      while ((match = xmlPattern.exec(content)) !== null) {
+        try {
+          const toolCallJson = JSON.parse(match[1]);
+
+          toolCalls.push({
+            id: `tool-${Date.now()}-${Math.random()}`,
+            type: toolCallJson.name,
+            parameters: toolCallJson.arguments,
+          });
+        } catch (error) {
+          logService.error('OllamaAdapter', 'Failed to parse tool call JSON', {
+            json: match[1],
+            error: error.message
+          });
+        }
       }
     }
 

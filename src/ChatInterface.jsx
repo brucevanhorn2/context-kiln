@@ -20,6 +20,8 @@ function ChatInterface() {
     switchModel,
   } = useClaude();
 
+  console.log('[ChatInterface] Rendering. Model:', currentModel, 'Available models:', availableModels.length);
+
   const [inputValue, setInputValue] = useState('');
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
@@ -109,6 +111,36 @@ function ChatInterface() {
     };
   }, []);
 
+  /**
+   * Check if content appears to be a malformed tool call
+   * Some models without proper tool support try to generate tool calls as text
+   */
+  const isMalformedToolCall = (content) => {
+    if (!content || typeof content !== 'string') return false;
+
+    const trimmed = content.trim();
+
+    // Check for patterns that indicate malformed tool calls
+    const toolCallPatterns = [
+      /^{"name":\s*"[^"]+",\s*"arguments/,  // {"name": "tool_name", "arguments...
+      /^{"function":\s*{/,  // {"function": {
+      /^{"type":\s*"function"/,  // {"type": "function"
+      /^{"tool_calls":\s*\[/,  // {"tool_calls": [
+    ];
+
+    return toolCallPatterns.some(pattern => pattern.test(trimmed));
+  };
+
+  /**
+   * Filter message content to hide malformed tool calls
+   */
+  const filterMessageContent = (content) => {
+    if (isMalformedToolCall(content)) {
+      return '[Model attempted to use tools but this model does not support agentic commands. Please select a model with tool support.]';
+    }
+    return content;
+  };
+
   return (
     <div
       style={{
@@ -142,17 +174,45 @@ function ChatInterface() {
           dropdownStyle={{ background: '#2a2a2a' }}
           disabled={isStreaming}
         >
-          {availableModels.map((model) => (
-            <Select.Option key={model.id || model} value={model.id || model}>
-              {model.name || model.id || model}
-            </Select.Option>
-          ))}
+          {availableModels.map((model) => {
+            const modelId = model.id || model;
+            const modelName = model.name || model.id || model;
+            const supportsTools = model.supportsTools !== false && model.capabilities?.tools !== false;
+
+            return (
+              <Select.Option key={modelId} value={modelId}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {modelName}
+                  {!supportsTools && (
+                    <WarningOutlined
+                      style={{ color: '#faad14', fontSize: '12px' }}
+                      title="This model does not support agentic tools"
+                    />
+                  )}
+                </span>
+              </Select.Option>
+            );
+          })}
         </Select>
         {messages.length === 0 && (
           <span style={{ marginLeft: 'auto', color: '#666' }}>
             No API key configured - Go to Settings
           </span>
         )}
+        {(() => {
+          const currentModelInfo = availableModels.find(m => (m.id || m) === currentModel);
+          const supportsTools = currentModelInfo?.supportsTools !== false && currentModelInfo?.capabilities?.tools !== false;
+
+          if (!supportsTools && currentModelInfo) {
+            return (
+              <span style={{ marginLeft: 'auto', color: '#faad14', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                <WarningOutlined />
+                No tool support
+              </span>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Error Message - styled like a chat message */}
@@ -264,7 +324,7 @@ function ChatInterface() {
                 overflow: 'hidden',
               }}
             >
-              <MessageContent content={message.content} />
+              <MessageContent content={filterMessageContent(message.content)} />
               {isActivelyStreaming && (
                 <Spin
                   size="small"
