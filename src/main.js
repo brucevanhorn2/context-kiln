@@ -42,7 +42,7 @@ const createWindow = () => {
   });
 
   const startUrl = isDev
-    ? 'http://localhost:3000'
+    ? 'http://localhost:31337'
     : `file://${path.join(__dirname, '../dist/index.html')}`;
 
   mainWindow.loadURL(startUrl);
