@@ -1,16 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+const winston = require('winston');
 
 /**
- * LogService - Centralized logging for Context Kiln
+ * LogService - Centralized logging for Context Kiln (Winston-based)
  *
  * Features:
- * - Writes to rotating log files
+ * - Writes to rotating log files (Winston DailyRotateFile)
  * - Console output in dev mode
  * - Log levels: debug, info, warn, error
  * - Timestamps on all entries
  * - Works from main process and renderer (via IPC)
+ * - Structured logging with metadata
  *
  * Log files are stored in the app's userData directory:
  * - Linux: ~/.config/context-kiln/logs/
@@ -18,22 +20,12 @@ const { app } = require('electron');
  * - Windows: %APPDATA%/context-kiln/logs/
  */
 
-const LOG_LEVELS = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
-
 class LogService {
   constructor() {
     this.logDir = null;
     this.logFile = null;
-    this.logStream = null;
-    this.currentLevel = LOG_LEVELS.debug; // Log everything by default
+    this.logger = null;
     this.isDev = process.env.NODE_ENV !== 'production';
-    this.maxFileSize = 5 * 1024 * 1024; // 5MB before rotation
-    this.maxFiles = 5; // Keep 5 old log files
   }
 
   /**
@@ -51,22 +43,74 @@ class LogService {
         fs.mkdirSync(this.logDir, { recursive: true });
       }
 
-      // Create log file with date
+      // Create log file path (Winston will handle daily rotation)
       const date = new Date().toISOString().split('T')[0];
       this.logFile = path.join(this.logDir, `context-kiln-${date}.log`);
 
-      // Open write stream (append mode)
-      this.logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
+      // Custom format: [timestamp] LEVEL [source] message {metadata}
+      const customFormat = winston.format.printf(({ timestamp, level, source, message, ...metadata }) => {
+        const levelStr = level.toUpperCase().padEnd(5);
+        const sourceStr = (source || 'Unknown').padEnd(20);
+        let msg = `[${timestamp}] ${levelStr} [${sourceStr}] ${message}`;
+
+        // Add metadata if present
+        const metaKeys = Object.keys(metadata);
+        if (metaKeys.length > 0 && metaKeys[0] !== 'level') {
+          try {
+            msg += ' ' + JSON.stringify(metadata);
+          } catch (e) {
+            msg += ' [Metadata - cannot stringify]';
+          }
+        }
+
+        return msg;
+      });
+
+      // Create Winston logger
+      const transports = [
+        // File transport - daily rotation
+        new winston.transports.File({
+          filename: this.logFile,
+          maxsize: 5 * 1024 * 1024, // 5MB
+          maxFiles: 5,
+          tailable: true,
+        })
+      ];
+
+      // Add console transport in dev mode
+      if (this.isDev) {
+        transports.push(
+          new winston.transports.Console({
+            format: winston.format.combine(
+              winston.format.colorize(),
+              winston.format.timestamp({ format: 'HH:mm:ss' }),
+              customFormat
+            )
+          })
+        );
+      }
+
+      this.logger = winston.createLogger({
+        level: 'debug',
+        format: winston.format.combine(
+          winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+          customFormat
+        ),
+        transports,
+        // Don't exit on error
+        exitOnError: false
+      });
 
       // Log startup
       this.info('LogService', '='.repeat(60));
       this.info('LogService', `Log started at ${new Date().toISOString()}`);
+      this.info('LogService', `Log directory: ${this.logDir}`);
       this.info('LogService', `Log file: ${this.logFile}`);
       this.info('LogService', `Dev mode: ${this.isDev}`);
       this.info('LogService', '='.repeat(60));
 
-      // Rotate old logs
-      this._rotateLogsIfNeeded();
+      // Clean up old log files (keep 7 days)
+      this._cleanupOldLogs();
 
       return this.logFile;
     } catch (error) {
@@ -80,61 +124,9 @@ class LogService {
    * @param {string} level - 'debug', 'info', 'warn', 'error'
    */
   setLevel(level) {
-    if (LOG_LEVELS[level] !== undefined) {
-      this.currentLevel = LOG_LEVELS[level];
+    if (this.logger) {
+      this.logger.level = level;
       this.info('LogService', `Log level set to: ${level}`);
-    }
-  }
-
-  /**
-   * Format a log message
-   * @private
-   */
-  _format(level, source, message, data) {
-    const timestamp = new Date().toISOString();
-    const levelStr = level.toUpperCase().padEnd(5);
-    const sourceStr = source.padEnd(20);
-
-    let line = `[${timestamp}] ${levelStr} [${sourceStr}] ${message}`;
-
-    if (data !== undefined) {
-      if (typeof data === 'object') {
-        try {
-          line += ' ' + JSON.stringify(data);
-        } catch (e) {
-          line += ' [Object - cannot stringify]';
-        }
-      } else {
-        line += ' ' + String(data);
-      }
-    }
-
-    return line;
-  }
-
-  /**
-   * Write a log entry
-   * @private
-   */
-  _write(level, source, message, data) {
-    if (LOG_LEVELS[level] < this.currentLevel) {
-      return; // Skip if below current level
-    }
-
-    const line = this._format(level, source, message, data);
-
-    // Write to file
-    if (this.logStream) {
-      this.logStream.write(line + '\n');
-    }
-
-    // Also write to console in dev mode
-    if (this.isDev) {
-      const consoleMethod = level === 'error' ? console.error :
-                           level === 'warn' ? console.warn :
-                           level === 'debug' ? console.debug :
-                           console.log;
-      consoleMethod(line);
     }
   }
 
@@ -142,28 +134,50 @@ class LogService {
    * Log a debug message
    */
   debug(source, message, data) {
-    this._write('debug', source, message, data);
+    if (this.logger) {
+      this.logger.debug({ source, message, ...this._formatData(data) });
+    }
   }
 
   /**
    * Log an info message
    */
   info(source, message, data) {
-    this._write('info', source, message, data);
+    if (this.logger) {
+      this.logger.info({ source, message, ...this._formatData(data) });
+    }
   }
 
   /**
    * Log a warning
    */
   warn(source, message, data) {
-    this._write('warn', source, message, data);
+    if (this.logger) {
+      this.logger.warn({ source, message, ...this._formatData(data) });
+    }
   }
 
   /**
    * Log an error
    */
   error(source, message, data) {
-    this._write('error', source, message, data);
+    if (this.logger) {
+      this.logger.error({ source, message, ...this._formatData(data) });
+    }
+  }
+
+  /**
+   * Format data for logging
+   * @private
+   */
+  _formatData(data) {
+    if (data === undefined) {
+      return {};
+    }
+    if (typeof data === 'object' && data !== null) {
+      return data;
+    }
+    return { data: String(data) };
   }
 
   /**
@@ -200,53 +214,10 @@ class LogService {
   }
 
   /**
-   * Rotate log files if current file is too large
+   * Clean up old log files (keep last 7 days)
    * @private
    */
-  _rotateLogsIfNeeded() {
-    try {
-      if (!this.logFile || !fs.existsSync(this.logFile)) {
-        return;
-      }
-
-      const stats = fs.statSync(this.logFile);
-      if (stats.size < this.maxFileSize) {
-        return;
-      }
-
-      // Close current stream
-      if (this.logStream) {
-        this.logStream.end();
-      }
-
-      // Rotate existing files
-      for (let i = this.maxFiles - 1; i >= 1; i--) {
-        const oldFile = `${this.logFile}.${i}`;
-        const newFile = `${this.logFile}.${i + 1}`;
-        if (fs.existsSync(oldFile)) {
-          if (i === this.maxFiles - 1) {
-            fs.unlinkSync(oldFile); // Delete oldest
-          } else {
-            fs.renameSync(oldFile, newFile);
-          }
-        }
-      }
-
-      // Rename current file
-      fs.renameSync(this.logFile, `${this.logFile}.1`);
-
-      // Create new stream
-      this.logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
-      this.info('LogService', 'Log file rotated');
-    } catch (error) {
-      console.error('Failed to rotate logs:', error);
-    }
-  }
-
-  /**
-   * Clean up old log files
-   */
-  cleanup() {
+  _cleanupOldLogs() {
     try {
       if (!this.logDir || !fs.existsSync(this.logDir)) {
         return;
@@ -256,27 +227,43 @@ class LogService {
       const now = Date.now();
       const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+      let deletedCount = 0;
       for (const file of files) {
         const filePath = path.join(this.logDir, file);
-        const stats = fs.statSync(filePath);
-        if (now - stats.mtime.getTime() > maxAge) {
-          fs.unlinkSync(filePath);
-          this.info('LogService', `Deleted old log file: ${file}`);
+        try {
+          const stats = fs.statSync(filePath);
+          if (now - stats.mtime.getTime() > maxAge) {
+            fs.unlinkSync(filePath);
+            deletedCount++;
+          }
+        } catch (err) {
+          // Skip files we can't access
         }
       }
+
+      if (deletedCount > 0) {
+        this.info('LogService', `Cleaned up ${deletedCount} old log file(s)`);
+      }
     } catch (error) {
-      console.error('Failed to cleanup logs:', error);
+      console.error('Failed to cleanup old logs:', error);
     }
+  }
+
+  /**
+   * Clean up old log files (public method)
+   */
+  cleanup() {
+    this._cleanupOldLogs();
   }
 
   /**
    * Close the log service
    */
   close() {
-    if (this.logStream) {
+    if (this.logger) {
       this.info('LogService', 'Log service closing');
-      this.logStream.end();
-      this.logStream = null;
+      this.logger.close();
+      this.logger = null;
     }
   }
 }

@@ -3,6 +3,7 @@ const OpenAIAdapter = require('./adapters/OpenAIAdapter');
 const OllamaAdapter = require('./adapters/OllamaAdapter');
 const LMStudioAdapter = require('./adapters/LMStudioAdapter');
 const LocalModelAdapter = require('./adapters/LocalModelAdapter');
+const logService = require('./LogService');
 
 /**
  * AIProviderService - Facade for all AI provider adapters
@@ -254,6 +255,7 @@ class AIProviderService {
             const toolCalls = adapter.parseToolCalls(adapterResponse);
 
             if (toolCalls && toolCalls.length > 0) {
+              logService.info('AIProviderService', 'Tool calls detected', { count: toolCalls.length });
               // Execute tools and send results back
               await this._handleToolCalls(
                 toolCalls,
@@ -282,7 +284,11 @@ class AIProviderService {
 
       return response;
     } catch (error) {
-      console.error(`Error from ${provider}:`, error);
+      logService.error('AIProviderService', 'AI provider error', {
+        provider,
+        error: error.message,
+        stack: error.stack
+      });
 
       const adapter = this._getAdapter(provider);
       const userMessage = adapter.getErrorMessage(error);
@@ -347,7 +353,10 @@ class AIProviderService {
           const formattedResult = adapter.formatToolResult(toolCall.id, result);
           toolResults.push(formattedResult);
         } catch (toolError) {
-          console.error('Tool execution failed:', toolError);
+          logService.error('AIProviderService', 'Tool execution failed', {
+            toolType: toolCall.type,
+            error: toolError.message
+          });
 
           // Format error result
           const errorResult = adapter.formatToolResult(toolCall.id, {
@@ -366,12 +375,13 @@ class AIProviderService {
       // Send tool results back to AI
       // Build new request with tool results
       // We need to include the assistant's response and the tool results in the conversation history
+      logService.info('AIProviderService', 'Tool execution complete, sending results to AI', { resultCount: toolResults.length });
       const previousMessages = originalContext.sessionContext?.previousMessages || [];
 
       // Add the assistant's response containing tool_use blocks
       const assistantMessage = {
         role: 'assistant',
-        content: assistantResponse.content || [], // Raw content blocks from API (includes tool_use)
+        content: assistantResponse.content || '', // Raw content blocks from API (includes tool_use)
       };
 
       const toolResultContext = {
@@ -391,7 +401,9 @@ class AIProviderService {
       // Send follow-up request
       await adapter.sendRequest(
         formattedRequest,
-        onChunk,
+        (chunk) => {
+          if (onChunk) onChunk(chunk);
+        },
         async (followUpResponse) => {
           // Log usage for follow-up
           if (this.databaseService && followUpResponse.usage) {
@@ -432,7 +444,10 @@ class AIProviderService {
         onError
       );
     } catch (error) {
-      console.error('Error handling tool calls:', error);
+      logService.error('AIProviderService', 'Error handling tool calls', {
+        error: error.message,
+        stack: error.stack
+      });
       if (onError) {
         onError(error);
       }
@@ -498,7 +513,7 @@ class AIProviderService {
         costUsd,
       });
     } catch (error) {
-      console.error('Failed to log usage:', error);
+      logService.error('AIProviderService', 'Failed to log usage', { error: error.message });
       // Don't throw - logging failure shouldn't break the main flow
     }
   }

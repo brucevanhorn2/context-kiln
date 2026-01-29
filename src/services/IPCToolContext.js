@@ -1,3 +1,5 @@
+const logService = require('./LogService');
+
 /**
  * IPCToolContext - Bridge between main process tool execution and renderer approval UI
  *
@@ -31,6 +33,12 @@ class IPCToolContext {
     return new Promise((resolve, reject) => {
       const approvalId = toolCall.id || `tool-${Date.now()}`;
 
+      logService.debug('IPCToolContext', 'Adding pending tool call', {
+        id: approvalId,
+        type: toolCall.type,
+        path: toolCall.path
+      });
+
       // Store callbacks
       this.pendingApprovals.set(approvalId, { resolve, reject });
 
@@ -38,11 +46,13 @@ class IPCToolContext {
       const timeout = setTimeout(() => {
         if (this.pendingApprovals.has(approvalId)) {
           this.pendingApprovals.delete(approvalId);
+          logService.warn('IPCToolContext', 'Tool approval timed out', { id: approvalId });
           reject(new Error('Tool approval timed out'));
         }
       }, this.approvalTimeout);
 
       // Send approval request to renderer
+      logService.debug('IPCToolContext', 'Sending approval request to renderer');
       this.mainWindow.webContents.send('tool:approval-request', {
         id: approvalId,
         toolCall: toolCall,
@@ -64,9 +74,15 @@ class IPCToolContext {
     const pending = this.pendingApprovals.get(approvalId);
 
     if (!pending) {
-      console.warn(`[IPCToolContext] No pending approval found for ID: ${approvalId}`);
+      logService.warn('IPCToolContext', 'No pending approval found', { approvalId });
       return;
     }
+
+    logService.info('IPCToolContext', 'Tool approval response received', {
+      approvalId,
+      approved,
+      modified: !!modifiedToolCall
+    });
 
     // Clear timeout
     if (pending.timeout) {

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Space, Spin, Select } from 'antd';
-import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, StopOutlined, RobotOutlined, WarningOutlined, CloseOutlined, CheckCircleOutlined, AudioOutlined, AudioMutedOutlined } from '@ant-design/icons';
 import { useClaude } from './contexts/ClaudeContext';
 import DiffPreviewModal from './components/DiffPreviewModal';
 import MessageContent from './components/MessageContent';
@@ -20,8 +20,12 @@ function ChatInterface() {
     switchModel,
   } = useClaude();
 
+  console.log('[ChatInterface] Rendering. Model:', currentModel, 'Available models:', availableModels.length);
+
   const [inputValue, setInputValue] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,6 +46,99 @@ function ChatInterface() {
     } catch (err) {
       console.error('Failed to send message:', err);
     }
+  };
+
+  const startSpeechRecognition = () => {
+    // Check for browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.error('Speech recognition not supported in this browser');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let finalTranscriptAccumulator = '';
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscriptAccumulator += transcript + ' ';
+        } else {
+          interimTranscript = transcript;
+        }
+      }
+
+      // Update input with accumulated final results plus current interim
+      setInputValue(finalTranscriptAccumulator + interimTranscript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+    setIsListening(true);
+    recognitionRef.current = recognition;
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
+  };
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  /**
+   * Check if content appears to be a malformed tool call
+   * Some models without proper tool support try to generate tool calls as text
+   */
+  const isMalformedToolCall = (content) => {
+    if (!content || typeof content !== 'string') return false;
+
+    const trimmed = content.trim();
+
+    // Check for patterns that indicate malformed tool calls
+    const toolCallPatterns = [
+      /^{"name":\s*"[^"]+",\s*"arguments/,  // {"name": "tool_name", "arguments...
+      /^{"function":\s*{/,  // {"function": {
+      /^{"type":\s*"function"/,  // {"type": "function"
+      /^{"tool_calls":\s*\[/,  // {"tool_calls": [
+    ];
+
+    return toolCallPatterns.some(pattern => pattern.test(trimmed));
+  };
+
+  /**
+   * Filter message content to hide malformed tool calls
+   */
+  const filterMessageContent = (content) => {
+    if (isMalformedToolCall(content)) {
+      return '[Model attempted to use tools but this model does not support agentic commands. Please select a model with tool support.]';
+    }
+    return content;
   };
 
   return (
@@ -77,17 +174,45 @@ function ChatInterface() {
           dropdownStyle={{ background: '#2a2a2a' }}
           disabled={isStreaming}
         >
-          {availableModels.map((model) => (
-            <Select.Option key={model.id || model} value={model.id || model}>
-              {model.name || model.id || model}
-            </Select.Option>
-          ))}
+          {availableModels.map((model) => {
+            const modelId = model.id || model;
+            const modelName = model.name || model.id || model;
+            const supportsTools = model.supportsTools !== false && model.capabilities?.tools !== false;
+
+            return (
+              <Select.Option key={modelId} value={modelId}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {modelName}
+                  {!supportsTools && (
+                    <WarningOutlined
+                      style={{ color: '#faad14', fontSize: '12px' }}
+                      title="This model does not support agentic tools"
+                    />
+                  )}
+                </span>
+              </Select.Option>
+            );
+          })}
         </Select>
         {messages.length === 0 && (
           <span style={{ marginLeft: 'auto', color: '#666' }}>
             No API key configured - Go to Settings
           </span>
         )}
+        {(() => {
+          const currentModelInfo = availableModels.find(m => (m.id || m) === currentModel);
+          const supportsTools = currentModelInfo?.supportsTools !== false && currentModelInfo?.capabilities?.tools !== false;
+
+          if (!supportsTools && currentModelInfo) {
+            return (
+              <span style={{ marginLeft: 'auto', color: '#faad14', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                <WarningOutlined />
+                No tool support
+              </span>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Error Message - styled like a chat message */}
@@ -199,7 +324,7 @@ function ChatInterface() {
                 overflow: 'hidden',
               }}
             >
-              <MessageContent content={message.content} />
+              <MessageContent content={filterMessageContent(message.content)} />
               {isActivelyStreaming && (
                 <Spin
                   size="small"
@@ -239,6 +364,15 @@ function ChatInterface() {
             borderColor: '#555555',
             color: '#d4d4d4',
           }}
+        />
+        <Button
+          icon={isListening ? <AudioMutedOutlined /> : <AudioOutlined />}
+          onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
+          disabled={isStreaming}
+          type={isListening ? 'primary' : 'default'}
+          danger={isListening}
+          title={isListening ? 'Stop recording' : 'Start voice input'}
+          style={isListening ? { backgroundColor: '#cf6679', borderColor: '#cf6679' } : {}}
         />
         {isStreaming ? (
           <Button

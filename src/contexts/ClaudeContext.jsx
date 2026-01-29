@@ -42,6 +42,8 @@ export const useClaude = () => {
  */
 
 export const ClaudeProvider = ({ children }) => {
+  console.log('[ClaudeContext] Provider initialized');
+
   // State
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -81,7 +83,9 @@ export const ClaudeProvider = ({ children }) => {
       if (!currentProvider) return;
 
       try {
+        console.log('[ClaudeContext] Loading models for provider:', currentProvider);
         const models = await window.electron.getAIModels(currentProvider);
+        console.log('[ClaudeContext] Models loaded:', models);
         setAvailableModels(models);
       } catch (err) {
         console.error('[ClaudeContext] Failed to load models:', err);
@@ -200,6 +204,10 @@ export const ClaudeProvider = ({ children }) => {
   const sendMessage = useCallback(
     async (userMessage, options = {}) => {
       try {
+        console.log('[ClaudeContext] sendMessage called with:', userMessage);
+        console.log('[ClaudeContext] Current provider:', currentProvider);
+        console.log('[ClaudeContext] Current model:', currentModel);
+
         setError(null);
         setIsStreaming(true);
 
@@ -246,11 +254,13 @@ export const ClaudeProvider = ({ children }) => {
         };
 
         // Send to main process
-        await window.electron.sendAIMessage({
+        const messageData = {
           internalContext,
           model: options.model || currentModel,
           provider: options.provider || currentProvider,
-        });
+        };
+        console.log('[ClaudeContext] Sending to backend:', messageData);
+        await window.electron.sendAIMessage(messageData);
       } catch (err) {
         console.error('Failed to send message:', err);
         setError(err.message || 'Failed to send message');
